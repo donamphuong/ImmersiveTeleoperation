@@ -1,0 +1,8 @@
+prefix=/home/donamphuong/ImmersiveTeleoperation/devel
+
+Name: stitcher
+Description: Description of stitcher
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/donamphuong/ImmersiveTeleoperation/devel/lib 
+Requires: 

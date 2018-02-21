@@ -1,0 +1,8 @@
+prefix=/home/donamphuong/ImmersiveTeleoperation/devel
+
+Name: learning_image_transport
+Description: Description of learning_image_transport
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/donamphuong/ImmersiveTeleoperation/devel/lib 
+Requires: 
