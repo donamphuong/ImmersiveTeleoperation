@@ -14,12 +14,12 @@ int main(int argc, char** argv) {
 
   ros::init(argc, argv, "image_publisher");
   ros::NodeHandle nh;
- 
+
   image_transport::ImageTransport it(nh);
   //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic. This will buffer up to 1 message before beginning to throw away old ones
   image_transport::Publisher pub = it.advertise("camera/image", 1);
 
-  /*//Convert the passed as command line parameter index for the device to an integer 
+  /*//Convert the passed as command line parameter index for the device to an integer
   std::istringstream video_sourceCmd(argv[1]);
   int video_source;
   //Check if it is indeed a number
@@ -33,22 +33,18 @@ int main(int argc, char** argv) {
   sensor_msgs::ImagePtr msg;
 
   ros::Rate loop_rate(5);
-
-  while (ros::ok()) {
-    std::cout << "Please press ENTER to take a picture";
-    if (cin.get() == '\n') {
- 
+  std::cout << "Please press ENTER to take a picture";
+  
+  while (nh.ok()) {
     cap >> frame;
     //Check if the grabbed frame is actually full with some content
-    if (!frame.empty()) {
+    if (!frame.empty() && std::cin.get() == '\n') {
       msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
       pub.publish(msg);
       cv::waitKey(1);
     }
-    }
-
 
     ros::spinOnce();
-    loop_rate.sleep();   
+    loop_rate.sleep();
   }
 }
