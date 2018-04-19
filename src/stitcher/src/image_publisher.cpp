@@ -9,22 +9,14 @@
 This is a camera node that takes care of the communication with the camera
 */
 int main(int argc, char** argv) {
-  //Check if video souce has been passed as a parameter
-  if (argv[1] == NULL) return 1;
-
   ros::init(argc, argv, "image_publisher");
   ros::NodeHandle nh;
 
   image_transport::ImageTransport it(nh);
-  //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic. This will buffer up to 1 message before beginning to throw away old ones
+  //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
+  //This will buffer up to 1 message before beginning to throw away old ones
   image_transport::Publisher pub = it.advertise("camera/image", 1);
 
-  /*//Convert the passed as command line parameter index for the device to an integer
-  std::istringstream video_sourceCmd(argv[1]);
-  int video_source;
-  //Check if it is indeed a number
-  //if (!(video_sourceCmd >> video_source)) return 1;
-  */
   int video_source = 0;
   cv::VideoCapture cap(video_source);
   //Check if video device can be opened with the given index
@@ -34,17 +26,19 @@ int main(int argc, char** argv) {
 
   ros::Rate loop_rate(5);
   std::cout << "Please press ENTER to take a picture";
-  
-  while (nh.ok()) {
-    cap >> frame;
-    //Check if the grabbed frame is actually full with some content
-    if (!frame.empty() && std::cin.get() == '\n') {
-      msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
-      pub.publish(msg);
-      cv::waitKey(1);
-    }
 
-    ros::spinOnce();
-    loop_rate.sleep();
+  while (nh.ok()) {
+    if (std::cin.get() == '\n') {
+      cap >> frame;
+      //Check if the grabbed frame is actually full with some content
+      if (!frame.empty()) {
+        msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
+        pub.publish(msg);
+        cv::waitKey(1);
+      }
+
+      ros::spinOnce();
+      loop_rate.sleep();
+    }
   }
 }

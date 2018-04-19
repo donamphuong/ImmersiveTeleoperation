@@ -7,6 +7,7 @@
 using namespace cv;
 
 int count = 0;
+image_transport::Publisher pub;
 /*
 The callback function that will get called when a new image has arrived on the "camera/image". Callback function only handles normal sensor_msgs/Image type.
 */
@@ -33,14 +34,17 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
 
     //Converting ROS image message to an OpenCV image with BGR pixel encoding, then show it in a display window
     Ptr<Stitcher> stitcher = Stitcher::create(Stitcher::PANORAMA, false);
-    Stitcher::Status status = stitcher->stitch(multipleImages, stitchedImage);
+    Stitcher::Status status = stitcher->stitch(multipleImages, cv_ptr->image);
 
     if (status != Stitcher::OK) {
       std::cout << "Can't stitch images, error code = " << int(status) << std::endl;
       return;
     }
 
-    imwrite("images/Panorama.jpg", stitchedImage);
+    imwrite("images/Panorama.jpg", cv_ptr->image);
+    waitKey(3);
+
+    pub.publish(cv_ptr->toImageMsg());
   }
   count++;
 }
@@ -64,6 +68,9 @@ int main(int argc, char **argv) {
   cv::startWindowThread();
   image_transport::ImageTransport it(nh);
   image_transport::Subscriber sub = it.subscribe("camera/image", 1, imageCallback);
+
+
+  pub = it.advertise("camera/stitched_image", 1);
 
   //Display our window
   ros::spin();
