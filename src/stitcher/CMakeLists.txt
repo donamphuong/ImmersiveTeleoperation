@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   image_transport
   cv_bridge
+  camera_info_manager
 )
 find_package(OpenCV REQUIRED)
 
@@ -201,13 +202,19 @@ include_directories(
 # catkin_add_nosetests(test)
 
 add_executable(image_publisher src/image_publisher.cpp)
-target_link_libraries(image_publisher 
+target_link_libraries(image_publisher
 	${catkin_LIBRARIES}
 	${OpenCV_LIBRARIES})
 add_dependencies(image_publisher stitcher_generate_messages_cpp)
 
 add_executable(image_processing src/image_processing.cpp)
-target_link_libraries(image_processing 
+target_link_libraries(image_processing
 	${catkin_LIBRARIES}
 	${OpenCV_LIBRARIES})
 add_dependencies(image_processing stitcher_generate_messages_cpp)
+
+add_executable(image_alignment src/image_alignment.cpp)
+target_link_libraries(image_alignment
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES})
+add_dependencies(image_alignment stitcher_generate_messages_cpp)

@@ -1,0 +1,30 @@
+<launch>
+  <arg name="video_device" default="/dev/video0" />
+  <arg name="image_width" default="640" />
+  <arg name="image_height" default="480" />
+  <arg name="image_topic_name" default="/usb_cam/image_raw" />
+  <arg name="camera_info_topic_name" default="/usb_cam/camera_info" />
+  <arg name="name_space" default="usb_cam" />
+
+  <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
+    <param name="video_device" value="$(arg video_device)" />
+    <param name="image_width" value="$(arg image_width)" />
+    <param name="image_height" value="$(arg image_height)"/>
+    <param name="pixel_format" value="yuyv" />
+    <param name="io_method" value="mmap"/>
+
+    <!-- update these line accroding to your setting, here are some examples:-->
+    <!-- <param name="camera_info_url" value="package://your_cameras/info/camera.yaml"/> -->
+    <!-- <param name="camera_info_url" value="file:///home/behnam/.ros/camera_info/head_camera.yaml"/> -->
+    <param name="camera_info_url" value="file:///home/donamphuong/.ros/camera_info/head_camera.yaml"/>
+    <remap from="/usb_cam/camera_info" to="$(arg camera_info_topic_name)"/>
+    <remap from="/usb_cam/image_raw" to="$(arg image_topic_name)"/>
+  </node>
+
+
+  <node name="image_rect_color" pkg="image_view" type="image_view" >
+  <remap from="image" to="$(arg name_space)/image_rect_color" />
+  </node>
+  <!-- this line is for: ROS_NAMESPACE=usb_cam rosrun image_proc image_proc -->
+  <node name="image_proc" pkg="image_proc" type="image_proc" ns="$(arg name_space)"/>
+</launch>

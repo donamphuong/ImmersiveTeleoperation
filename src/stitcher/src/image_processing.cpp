@@ -18,7 +18,7 @@ std::string to_string(int x) {
 }
 /*
 The callback function that will get called when a new image has arrived on the "camera/image". Callback function only handles normal sensor_msgs/Image type.
-*/
+
 void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
   cv_bridge::CvImagePtr cv_ptr;
   try {
@@ -57,8 +57,8 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
   }
   count++;
 }
-
-/*void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
+*/
+void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
   try {
      //cv::imshow("view", cv_bridge::toCvShare(msg, "bgr8")->image);
      imwrite("images/ImageV" + to_string(count) + ".jpg", cv_bridge::toCvShare(msg, "bgr8")->image);
@@ -67,20 +67,20 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
   } catch (cv_bridge::Exception& e) {
      ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
   }
-}*/
+}
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "image_processing");
   ros::NodeHandle nh;
 
   //Create an OpenCV display window
-//  cv::namedWindow("view");
-  //cv::startWindowThread();
+  cv::namedWindow("view");
+  cv::startWindowThread();
   image_transport::ImageTransport it(nh);
+  int num_cam = atoi(argv[1]);
   image_transport::Subscriber sub = it.subscribe("camera/image", 1, imageCallback);
 
-
-  pub = it.advertise("camera/stitched_image", 1);
+  // pub = it.advertise("camera/stitched_image", 1);
 
   //Display our window
   ros::spin();

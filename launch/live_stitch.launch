@@ -1,0 +1,7 @@
+<launch>
+  <node name="image_publisher" pkg="stitcher" type="image_publisher" args="1">
+  </node>
+
+  <node name="image_processing" pkg="stitcher" type="image_processing" args="1">
+  </node>
+</launch>
