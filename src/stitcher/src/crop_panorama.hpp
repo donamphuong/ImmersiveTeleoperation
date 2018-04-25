@@ -18,16 +18,5 @@ using namespace cv::xfeatures2d;
 using namespace cv;
 using namespace std;
 
-int main(int argc, char **argv) {
-  // Mat input = imread("images/Panorama.jpg");
-  // Mat gray;
-  // cvtColor(input, gray, CV_BGR2GRAY);
-  //
-  // //extract black background
-  // Mat mask = gray > 0;
-  // //extract outer contour
-  // vector<vector<Point> > contours;
-  // vector<Vec4i> hierarchy;
-  //
-  // findContours(mask, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, Point(0, 0))
-}
+bool checkInteriorExterior(const cv::Mat&mask, const cv::Rect&interiorBB, int&top, int&bottom, int&left, int&right);
+Rect cropPanorama();
