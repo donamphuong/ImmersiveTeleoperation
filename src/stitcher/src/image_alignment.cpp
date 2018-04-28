@@ -1,33 +1,73 @@
-// Standard C++ I/O library.
 #include <iostream>
+
+// #include "opencv2/opencv_modules.hpp"
+
 #include <string>
-#include <iomanip>
 #include <vector>
+#include <algorithm>
+#include <numeric>
 
-// OpenCV feature library.
-#include <opencv2/opencv.hpp>
-#include <opencv2/features2d.hpp>
-#include <opencv2/xfeatures2d.hpp>
-#include <camera_info_manager/camera_info_manager.h>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/calib3d.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/core/opengl.hpp>
+#include <opencv2/cudacodec.hpp>
 #include <opencv2/highgui.hpp>
-#include <opencv2/aruco.hpp>
 
-using namespace cv::xfeatures2d;
-using namespace cv;
-using namespace std;
-
-int main(int argc, char **argv) {
-  // Mat input = imread("images/Panorama.jpg");
-  // Mat gray;
-  // cvtColor(input, gray, CV_BGR2GRAY);
-  //
-  // //extract black background
-  // Mat mask = gray > 0;
-  // //extract outer contour
-  // vector<vector<Point> > contours;
-  // vector<Vec4i> hierarchy;
-  //
-  // findContours(mask, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, Point(0, 0))
+int main(int argc, const char* argv[])
+{
+    std::cout << cv::getBuildInformation() << std::endl;
+    // if (argc != 2)
+    //     return -1;
+    //
+    // const std::string fname(argv[1]);
+    //
+    // cv::namedWindow("CPU", cv::WINDOW_NORMAL);
+    // cv::namedWindow("GPU", cv::WINDOW_OPENGL);
+    // cv::cuda::setGlDevice();
+    //
+    // cv::Mat frame;
+    // cv::VideoCapture reader(fname);
+    //
+    // cv::cuda::GpuMat d_frame;
+    // cv::Ptr<cv::cudacodec::VideoReader> d_reader = cv::cudacodec::createVideoReader(fname);
+    //
+    // cv::TickMeter tm;
+    // std::vector<double> cpu_times;
+    // std::vector<double> gpu_times;
+    //
+    // for (;;)
+    // {
+    //     tm.reset(); tm.start();
+    //     if (!reader.read(frame))
+    //         break;
+    //     tm.stop();
+    //     cpu_times.push_back(tm.getTimeMilli());
+    //
+    //     tm.reset(); tm.start();
+    //     if (!d_reader->nextFrame(d_frame))
+    //         break;
+    //     tm.stop();
+    //     gpu_times.push_back(tm.getTimeMilli());
+    //
+    //     cv::imshow("CPU", frame);
+    //     cv::imshow("GPU", d_frame);
+    //
+    //     if (cv::waitKey(3) > 0)
+    //         break;
+    // }
+    //
+    // if (!cpu_times.empty() && !gpu_times.empty())
+    // {
+    //     std::cout << std::endl << "Results:" << std::endl;
+    //
+    //     std::sort(cpu_times.begin(), cpu_times.end());
+    //     std::sort(gpu_times.begin(), gpu_times.end());
+    //
+    //     double cpu_avg = std::accumulate(cpu_times.begin(), cpu_times.end(), 0.0) / cpu_times.size();
+    //     double gpu_avg = std::accumulate(gpu_times.begin(), gpu_times.end(), 0.0) / gpu_times.size();
+    //
+    //     std::cout << "CPU : Avg : " << cpu_avg << " ms FPS : " << 1000.0 / cpu_avg << std::endl;
+    //     std::cout << "GPU : Avg : " << gpu_avg << " ms FPS : " << 1000.0 / gpu_avg << std::endl;
+    // }
+    //
+    // return 0;
 }

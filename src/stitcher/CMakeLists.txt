@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(stitcher)
 
+set(OpenCV_LIBRARIES "/usr/local/")
+
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
+#set(CMAKE_CXX_FLAGS "std=c++11")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -12,9 +15,12 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   image_transport
   cv_bridge
-  camera_info_manager
 )
-find_package(OpenCV REQUIRED)
+
+find_package(OpenCV REQUIRED
+NO_MODULE
+PATHS /usr/local
+NO_DEFAULT_PATH)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -121,6 +127,7 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  /usr/local/include
 )
 
 ## Declare a C++ library
