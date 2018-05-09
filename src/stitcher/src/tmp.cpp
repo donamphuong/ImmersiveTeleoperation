@@ -1,170 +1,238 @@
-#include <stdio.h>
 #include <iostream>
+#include <cstdio>
+#include <ctime>
+// #include "opencv2/opencv_modules.hpp"
+#include <stdlib.h>
+#include <string>
+#include <stdio.h>
+#include <ros/ros.h>
 #include <opencv2/opencv.hpp>
-#include <camera_info_manager/camera_info_manager.h>
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudafeatures2d.hpp>
+#include <opencv2/videoio.hpp>
+#include <opencv2/stitching.hpp>
+#include <opencv2/calib3d.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/xfeatures2d.hpp>
+#include <opencv2/cudaimgproc.hpp>
+#include <opencv2/stitching/detail/warpers.hpp>
 
+using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
-using namespace camera_info_manager;
+using namespace cv::detail;
 
-int MAX_FEATURES = 500;
-float GOOD_MATCH_PERCENT = 0.15;
+const int numImage = 2;
+const int MAX_FEATURES = 500;
+const float GOOD_MATCH_PERCENT = 0.15f;
+class CalibrationDetails {
+  public:
+  Mat camera_matrix;
+  Mat distortion;
+  Mat rectification;
+  Mat projection;
+};
 
-void alignImages(Mat &img1, Mat &img2, Mat &imgResult, Mat &h) {
-  //Convert images to grayscale
-  Mat img1Gray, img2Gray;
-  cvtColor(img1, img1Gray, CV_BGR2GRAY);
-  cvtColor(img2, img2Gray, CV_BGR2GRAY);
+std::vector<CalibrationDetails> calibrations;
 
-  //Variables to store keypoints and descriptors
-  std::vector<KeyPoint> keypoints1, keypoints2;
-  Mat descriptors1, descriptors2;
+Mat homography(Mat im1, Mat im2) {
+  // int minHessain = 400;
+  // Mat gray1, gray2;
+  // cvtColor(im1, gray1, COLOR_BGR2GRAY);
+  // cvtColor(im2, gray2, COLOR_BGR2GRAY);
+  //
+  // // Copy image into GPU memory
+  // cuda::GpuMat img1Gray(gray1);
+  // cuda::GpuMat img2Gray(gray2);
+  //
+  // // Variables to store keypoints and descriptors
+  // cuda::GpuMat keypoints1, keypoints2;
+  // cuda::GpuMat descriptors1, descriptors2;
+  //
+  // // Detect ORB features and compute descriptors.
+  // cuda::SURF_CUDA surf(minHessain);
+  // surf(img1Gray, cuda::GpuMat(), keypoints1, descriptors1);
+  // surf(img2Gray, cuda::GpuMat(), keypoints2, descriptors2);
+  //
+  // // Match features.
+  // vector<vector<DMatch> > matches;
+  // Ptr<cuda::DescriptorMatcher> matcher = cuda::DescriptorMatcher::createBFMatcher();
+  // matcher->knnMatch(descriptors1, descriptors2, matches, 2);
+  //
+  // vector<KeyPoint> keypoints1_res, keypoints2_res;
+  // surf.downloadKeypoints(keypoints1, keypoints1_res);
+  // surf.downloadKeypoints(keypoints2, keypoints2_res);
+  //
+  // vector<DMatch> goodMatches;
+  // vector<Point2f> points1, points2;
+  // for (int i = 0; i < min(keypoints1_res.size() - 1, matches.size()); i++) {
+  //   if (matches[i][0].distance < 0.6 * matches[i][1].distance &&
+  //       ((int) matches[i].size() <= 2 && (int) matches[i].size() > 0)) {
+  //       goodMatches.push_back(matches[i][0]);
+  //       points1.push_back(keypoints1_res[matches[i][0].queryIdx].pt);
+  //       points2.push_back(keypoints2_res[matches[i][0].trainIdx].pt);
+  //     }
+  // }
 
-  //Detect SIFT features and compute descriptors
-  Ptr<Feature2D> surf = SURF::create(MAX_FEATURES);
-  surf->detectAndCompute(img1Gray, Mat(), keypoints1, descriptors1);
-  surf->detectAndCompute(img2Gray, Mat(), keypoints2, descriptors2);
+  // surf.releaseMemory();
+  // matcher.release();
+  // img1Gray.release();
+  // img2Gray.release();
 
-  // //Match features
-  std::vector<DMatch> matches;
-  Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce");
-  matcher->match(descriptors1, descriptors2, matches, Mat());
+  // Mat imMatches;
+  // drawMatches(im1, keypoints1_res, im2, keypoints2_res, goodMatches, imMatches);
+  // Find homography
+  // Mat h = findHomography(points2, points1, RANSAC );
 
-  //Sort matches by score
-  std::sort(matches.begin(), matches.end());
+  Mat h;
+  FileStorage file("/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/test.yaml", FileStorage::READ);
+  file["homography"] >> h;
+  file.release();
 
-  //Remove not so good matches
-  const int numGoodMatches = matches.size() * GOOD_MATCH_PERCENT;
-  matches.erase(matches.begin() + numGoodMatches, matches.end());
+  return h;
+}
 
-  //Draw top matches
-  Mat imMatches;
-  drawMatches(img1, keypoints1, img2, keypoints2, matches, imMatches);
-  imwrite("img/matches.jpg", imMatches);
+void alignImages(Mat im1, Mat im2) {
+  Mat h = homography(im1, im2);
+  Mat im2Warped;
+  warpPerspective(im2, im2Warped, h, Size(im2.cols * 2, im2.rows));
+  Mat aligned(im1.rows, 2 * im1.cols, im1.type());
 
-  //Extract location of good matches
-  std::vector<Point2f> points1, points2;
+  // images area in the final stitched image
+  Mat imLeftArea = aligned(Rect(0, 0, im1.cols, im1.rows));
+  Mat imRightArea = aligned(Rect(im1.cols, 0, im2.cols, im2.rows));
 
-  for (size_t i = 0; i < matches.size(); i++) {
-    points1.push_back(keypoints1[matches[i].queryIdx].pt);
-    points2.push_back(keypoints2[matches[i].queryIdx].pt);
+  Mat roiImgLeft = im1(Rect(0, 0, im1.cols, im2.rows));
+  Mat roiImgRight = im2Warped(Rect(im1.cols, 0, im2.cols, im2.rows));
+
+  roiImgLeft.copyTo(imLeftArea);
+  roiImgRight.copyTo(imRightArea);
+
+  namedWindow("warped", WINDOW_NORMAL);
+  resizeWindow("warped", 1024, 600);
+  imshow ("warped", aligned);
+  waitKey();
+}
+
+void initialiseParams(vector<Mat> images, vector<Point> &corners,
+                      vector<UMat> &masksWarped, vector<UMat> &imagesWarped,
+                      vector<Size> &sizes, vector<UMat> &masks, Ptr<RotationWarper> warper) {
+  // the mask of an image is a white rectangle of the same size as the image
+  for (int i = 0; i < numImage; i++) {
+    masks[i].create(images[i].size(), CV_8U);
+    masks[i].setTo(Scalar::all(255));
   }
 
-  //Find homography
-  h = findHomography(points1, points2, RANSAC);
+  for (int i = 0; i < numImage; i++) {
+    Mat K, R;
+    calibrations[i].camera_matrix.convertTo(K, CV_32F);
+    calibrations[i].rectification.convertTo(R, CV_32F);
 
-  Mat imgMask = Mat(img1.size(), CV_8UC1, Scalar(255));
-  Mat imgMaskWarped, imgTrainWarped;
-  //Use homography to warp image
-  warpPerspective(imgMask, imgMaskWarped, h, img2.size());
-  warpPerspective(img1, imgTrainWarped, h, img2.size());
-
-  imgTrainWarped.copyTo(img2, imgMaskWarped);
-  imwrite("Later.jpg", imgTrainWarped);
-}
-
-float angleBetween(Point &v1, Point &v2) {
-  float len1 = sqrt(v1.x * v1. x + v1.y * v1.y);
-  float len2 = sqrt(v2.x * v2. x + v2.y * v2.y);
-
-  float dot = v1.x * v2.x + v1.y * v2.y;
-  float a = dot/(len1 * len2);
-
-  if (a >= 1.0) {
-    return 0.0;
-  } else if (a <= -1.0) {
-    return 3.14;
-  } else {
-    return acos(a);
+    corners[i] = warper->warp(images[i], K, R, INTER_LINEAR, BORDER_REFLECT, imagesWarped[i]);
+    sizes[i] = imagesWarped[i].size();
+    // imshow("result",imagesWarped[i]);
+    // waitKey();
+    // save projected mask in masksWarped
+    warper->warp(masks[i], K, R, INTER_NEAREST, BORDER_CONSTANT, masksWarped[i]);
   }
 }
 
-cv::Point2f convert_pt(cv::Point2f point,int w,int h) {
-//center the point at 0,0
-cv::Point2f pc(point.x-w/2,point.y-h/2);
 
-//these are your free parameters
-float f = w;
-float r = w;
+void warpAndBlend(vector<Mat> images) {
+  std::clock_t start;
+  double duration;
+  start = std::clock();
 
-float omega = w/2;
-float z0 = f - sqrt(r*r-omega*omega);
+  //stores top left corners coordinates of each image
+  vector<Mat> imagesWarped(numImage);
+  vector<UMat> masks(numImage);
+  // cv::PlaneWarper warperCreator;
+  // Ptr<RotationWarper> warper = warperCreator.create(1.0);
 
-float zc = (2*z0+sqrt(4*z0*z0-4*(pc.x*pc.x/(f*f)+1)*(z0*z0-r*r)))/(2* (pc.x*pc.x/(f*f)+1));
-cv::Point2f final_point(pc.x*zc/f,pc.y*zc/f);
-final_point.x += w/2;
-final_point.y += h/2;
-return final_point;
-}
+  // initialiseParams(images, corners, masksWarped, imagesWarped, sizes, masks, warper);
+  //
+  // vector<UMat> imagesWarped_F(numImage);
+  // for (int i = 0; i < numImage; i++) {
+  //   imagesWarped[i].convertTo(imagesWarped_F[i], CV_32F);
+  // }
+  //
+  // GraphCutSeamFinder seamFinder = GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR_GRAD);
+  // // estimating seams
+  // seamFinder.find(imagesWarped_F, corners, masksWarped);
 
-void cylindrical_project(Mat &image, float width, float height, Mat &dest_im) {
-  for(int y = 0; y < height; y++) {
-    for(int x = 0; x < width; x++) {
-        cv::Point2f current_pos(x,y);
-        current_pos = convert_pt(current_pos, width, height);
+  // the mask of an image is a white rectangle of the same size as the image
+  for (int i = 0; i < numImage; i++) {
+    masks[i].create(images[i].size(), CV_8U);
+    masks[i].setTo(Scalar::all(255));
 
-        cv::Point2i top_left((int)current_pos.x,(int)current_pos.y); //top left because of integer rounding
-
-        //make sure the point is actually inside the original image
-        if(top_left.x < 0 ||
-           top_left.x > width-2 ||
-           top_left.y < 0 ||
-           top_left.y > height-2) {
-            continue;
-        }
-
-        //bilinear interpolation
-        float dx = current_pos.x-top_left.x;
-        float dy = current_pos.y-top_left.y;
-
-        float weight_tl = (1.0 - dx) * (1.0 - dy);
-        float weight_tr = (dx)       * (1.0 - dy);
-        float weight_bl = (1.0 - dx) * (dy);
-        float weight_br = (dx)       * (dy);
-
-        uchar value =   weight_tl * image.at<uchar>(top_left) +
-        weight_tr * image.at<uchar>(top_left.y,top_left.x+1) +
-        weight_bl * image.at<uchar>(top_left.y+1,top_left.x) +
-        weight_br * image.at<uchar>(top_left.y+1,top_left.x+1);
-
-        dest_im.at<uchar>(y,x) = value;
+    if (i != 0) {
+      Mat previousImage = imagesWarped[i-1];
+      Mat currentImage = images[i];
+      Mat h = homography(previousImage, currentImage);
+      warpPerspective(currentImage, imagesWarped[i], h, Size(currentImage.cols * 2, currentImage.rows));
+    } else {
+      imagesWarped[i] = images[i];
     }
   }
-}
 
-int main(int argc, char **argv) {
-  std::vector<Mat> imgs;
-  Mat img1 = imread("images/Image0.jpg");
-  Mat img2 = imread("images/2.jpg");
-  ros::init(argc, argv, "image_alignment");
- ros::NodeHandle nh; // to get the private params
- ros::NodeHandle _nh("~"); // to get the private params
+  FeatherBlender blender(1.0f);
+  blender.prepare(Rect(0, 0, images[0].cols + images[1].cols, images[0].rows + images[0].rows));
 
- std::string camera_name = "head_camera";
- std::string camera_info_url = "file:///home/donamphuong/.ros/camera_info/head_camera.yaml";
-  // _nh.param("camera_info_url", camera_info_url, std::string(""));
+  for (int i = 0; i < numImage; i++) {
+    Mat imageS;
+    imagesWarped[i].convertTo(imageS, CV_16S);
 
-  CameraInfoManager cam_info_manager(nh, camera_name, camera_info_url);
-  // Get the saved camera info if any
-  sensor_msgs::CameraInfo cam_info_msg;
-
-  cam_info_msg = cam_info_manager.getCameraInfo();
-
-  detail::CylindricalWarper warper(0.5);
-  Mat h, dest;
-  float K[3][3], R[3][3];
-
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3;j ++) {
-      K[i][j] = cam_info_msg.K[j + i*3];
-      R[i][j] = cam_info_msg.R[j + i*3];
-    }
+    blender.feed(imageS, masks[i], Point(0, 0));
   }
 
-  warper.warp(img1, Mat(3, 3, CV_32F, K), Mat(3, 3, CV_32F, R), 0, BORDER_DEFAULT, dest);
-  // alignImages(img1, img2, dest, h);
-  imwrite("Later.jpg", dest);
+  Mat result, result_s, result_mask;
+  blender.blend(result_s, result_mask);
+  result_s.convertTo(result, CV_8U);
+  imshow("result",result);
+  waitKey();
+  duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+  std::cout<<"printf: "<< duration <<'\n';
+
+}
+
+void stitch(Mat im1, Mat im2) {
+    vector<Mat> images;
+    images.push_back(im1);
+    images.push_back(im2);
+    warpAndBlend(images);
+}
+
+void getCalibrationDetails() {
+  for (int i = 1; i < 2+1; i++) {
+    CalibrationDetails cal;
+    std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(i) + ".yaml";
+    FileStorage fs(filename, FileStorage::READ);
+
+    if (!fs.isOpened()) {
+      std::cout << "Could not open the configuration file" << std::endl;
+      exit(-1) ;
+    }
+
+    fs["camera_matrix"] >> cal.camera_matrix;
+    fs["distortion_coefficients"] >> cal.distortion;
+    fs["rectification_matrix"] >> cal.rectification;
+    fs["projection_matrix"] >> cal.projection;
+    fs.release();
+
+    calibrations.push_back(cal);
+  }
+}
+
+int main(int argc, char** argv) {
+  getCalibrationDetails();
+  cv::Mat im1, im2;
+
+  im1 = imread("images/test2.png"/*, IMREAD_GRAYSCALE*/);
+  im2 = imread("images/test1.png"/*, IMREAD_GRAYSCALE*/);
+
+  stitch(im1, im2);
+
   return 0;
 }

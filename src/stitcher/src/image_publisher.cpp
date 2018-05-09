@@ -9,42 +9,54 @@
 
 using namespace cv;
 
+class CalibrationDetails {
+  public:
+  Mat camera_matrix;
+  Mat distortion;
+  Mat rectification;
+  Mat projection;
+};
+
+std::vector<CalibrationDetails> calibrations;
+
 std::string to_string(int x) {
   std::stringstream stream;
   stream << x;
   return stream.str();
 }
 
-void calibrate(int cam, Mat img, Mat& newImg) {
-  Mat camera_matrix, distortion, rectification, projection;
+void getCalibrationDetails(int num_cam) {
+  for (int i = 1; i < num_cam+1; i++) {
+    CalibrationDetails cal;
+    std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(i) + ".yaml";
+    FileStorage fs(filename, FileStorage::READ);
 
-  std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(cam) + ".yaml";
-  FileStorage fs(filename, FileStorage::READ);
+    if (!fs.isOpened()) {
+      std::cout << "Could not open the configuration file" << std::endl;
+      exit(-1) ;
+    }
 
-  if (!fs.isOpened()) {
-    std::cout << "Could not open the configuration file" << std::endl;
-    return ;
+    fs["camera_matrix"] >> cal.camera_matrix;
+    fs["distortion_coefficients"] >> cal.distortion;
+    fs["rectification_matrix"] >> cal.rectification;
+    fs["projection_matrix"] >> cal.projection;
+    fs.release();
+
+    calibrations.push_back(cal);
   }
-
-  fs["camera_matrix"] >> camera_matrix;
-  fs["distortion_coefficients"] >> distortion;
-  fs["rectification_matrix"] >> rectification;
-  fs["projection_matrix"] >> projection;
-  fs.release();
-
-  undistort(img, newImg, camera_matrix, distortion);
 }
 
-void save_frame(VideoCapture cap, std::vector<Mat>& images, int view) {
+void save_frame(VideoCapture cap, std::vector<Mat>& images, int cam) {
   Mat frame;
   sensor_msgs::ImagePtr msg;
   cap >> frame;
   //Check if the grabbed frame is actually full with some content
   if (!frame.empty()) {
     Mat corrected;
-    calibrate(view, frame, corrected);
+
+    undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
     images.push_back(corrected);
-    imshow("view" + to_string(view), corrected);
+    imshow("view" + to_string(cam+1), corrected);
     cv::waitKey(1);
   }
 }
@@ -60,12 +72,13 @@ int main(int argc, char** argv) {
 
   image_transport::ImageTransport it(nh);
   int num_cam = atoi(argv[1]);
+  getCalibrationDetails(num_cam);
 
   cv::namedWindow("view1");
   cv::startWindowThread();
   cv::namedWindow("view2");
   cv::startWindowThread();
-  ros::Rate loop_rate(5);
+  ros::Rate loop_rate(20);
   std::cout << "Image Publisher running" << std::endl;
 
   //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
@@ -74,7 +87,7 @@ int main(int argc, char** argv) {
   cv::VideoCapture cap[num_cam];
 
   for (int video_source = 1; video_source < num_cam + 1; video_source++) {
-    cap[video_source-1].open(video_source-1);
+    cap[video_source-1].open(video_source);
 
     //Check if video device can be opened with the given index
     if (!cap[video_source-1].isOpened()) return 1;
@@ -83,21 +96,20 @@ int main(int argc, char** argv) {
   while (nh.ok()) {
     std::vector<Mat> images;
     for (int i = 0; i < num_cam; i++) {
-      save_frame(cap[i], images, i+1);
+      save_frame(cap[i], images, i);
     }
 
-    Mat pano;
-    //Converting ROS image message to an OpenCV image with BGR pixel encoding, then show it in a display window
-    Ptr<Stitcher> stitcher = Stitcher::create(Stitcher::PANORAMA, true);
-    Stitcher::Status status = stitcher->stitch(images, pano);
+    // Mat pano;
+    // //Converting ROS image message to an OpenCV image with BGR pixel encoding, then show it in a display window
+    // Ptr<Stitcher> stitcher = Stitcher::create(Stitcher::PANORAMA, true);
+    // Stitcher::Status status = stitcher->stitch(images, pano);
+    //
+    // if (status != Stitcher::OK) {
+    //   std::cout << "Can't stitch images, error code = " << int(status) << std::endl;
+    //   return 1;
+    // }
 
-    if (status != Stitcher::OK) {
-      std::cout << "Can't stitch images, error code = " << int(status) << std::endl;
-      waitKey(1);
-      return 1;
-    }
-
-    imshow("stitched images", pano);
+    // imshow("stitched images", pano);
     // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", pano).toImageMsg();
     // pub.publish(msg);
 
