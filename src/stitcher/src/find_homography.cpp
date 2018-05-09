@@ -129,7 +129,7 @@ Mat affineTransform(Mat im1, Mat im2) {
   // waitKey();
   // Find homography
 
-  return estimateRigidTransform(points2, points1, true);
+  return estimateRigidTransform(points1, points2, true);
 }
 
 
@@ -171,11 +171,11 @@ void alignImages(Mat im1, Mat im2) {
 int main(int argc, char** argv) {
   cv::Mat im1, im2, dst;
 
-  im1 = imread("images/frame2.png");
-  im2 = imread("images/frame1.png");
+  im1 = imread("test32.png");
+  im2 = imread("test23.png");
 
   Mat h = affineTransform(im1, im2);
-  std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/affine/A12.yaml";
+  std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/affine/A32.yaml";
   FileStorage file(filename, FileStorage::WRITE);
 
   file << "affine" << h;

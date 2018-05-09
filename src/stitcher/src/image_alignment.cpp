@@ -30,6 +30,7 @@ vector<Mat> homographies(numImage);
 
 void homography() {
   for (int i = 1; i < numImage; i++) {
+  // for (int i = numImage-1; i > 0; i--) {
     Mat h;
     string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/affine/A" +
                       to_string(i) + to_string(i+1) + ".yaml";
@@ -75,22 +76,28 @@ void warpAndBlend(vector<Mat> images) {
         warpAffine(masks[i], masks[i], h, Size(currentImage.cols * numImage, currentImage.rows));
         currentImage = imagesWarped[i];
       }
-
     } else {
       imagesWarped[i] = images[i];
     }
 
     Mat imageS;
     imagesWarped[i].convertTo(imageS, CV_16S);
+    duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+    std::cout<<"Warping Time " << to_string(i)  << " " << duration <<'\n';
 
     blender.feed(imageS, masks[i], Point(0, 0));
+    duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+    std::cout<<"Feeding Time " << to_string(i)  << " " << duration <<'\n';
 
   }
 
   Mat result, result_s, result_mask;
+  duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+  std::cout<<"Aligning Time: "<< duration <<'\n';
+
   blender.blend(result_s, result_mask);
   duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-  std::cout<<"printf: "<< duration <<'\n';
+  std::cout<<"Blending Time: "<< duration <<'\n';
 
   result_s.convertTo(result, CV_8U);
   namedWindow("warped", WINDOW_NORMAL);
@@ -99,61 +106,22 @@ void warpAndBlend(vector<Mat> images) {
   waitKey();
 }
 
-Mat translateImg(Mat &img, int offsetx, int offsety){
-    Mat trans_mat = (Mat_<double>(2,3) << 1, 0, offsetx, 0, 1, offsety);
-    warpAffine(img,img,trans_mat,img.size());
-    return trans_mat;
-}
-
-void alignImages(Mat im1, Mat im2, Mat h) {
-  std::clock_t start;
-
-  double duration;
-
-  start = std::clock();
-
-  // h = h.inv();
-  Mat im2Warped;
-  warpPerspective(im2, im2Warped, h, Size(im2.cols * 3, im2.rows));
-  Mat aligned(im1.rows, 2 * im1.cols, im1.type());
-
-  // images area in the final stitched image
-  Mat imLeftArea = aligned(Rect(0, 0, im1.cols, im1.rows));
-  Mat imRightArea = aligned(Rect(im1.cols, 0, im2.cols, im2.rows));
-
-  Mat roiImgLeft = im1(Rect(0, 0, im1.cols, im2.rows));
-  Mat roiImgRight = im2Warped(Rect(im1.cols, 0, im2.cols, im2.rows));
-
-  roiImgLeft.copyTo(imLeftArea);
-  roiImgRight.copyTo(imRightArea);
-  duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-
-  std::cout<<"printf: "<< duration <<'\n';
-
-  Mat result;
-  flip(aligned, result, 1);
-  namedWindow("warped", WINDOW_NORMAL);
-  resizeWindow("warped", 1024, 600);
-  imshow ("warped", im2Warped);
-  waitKey();
-}
-
 int main(int argc, char** argv) {
-  homography();
-  vector<Mat> images;
-
-  for (int i = numImage; i > 0; i--) {
-    string filename = "test" + to_string(i) + ".png";
-    Mat im = imread(filename);
-
-    if (im.empty()) {
-      cout << "Image " + filename + "is not found!" << endl;
-      return ERROR;
-    }
-    images.push_back(im);
-  }
-
-  warpAndBlend(images);
+  // homography();
+  // vector<Mat> images;
+  //
+  // for (int i = numImage; i > 0; i--) {
+  //   string filename = "test" + to_string(i) + ".png";
+  //   Mat im = imread(filename);
+  //
+  //   if (im.empty()) {
+  //     cout << "Image " + filename + "is not found!" << endl;
+  //     return ERROR;
+  //   }
+  //   images.push_back(im);
+  // }
+  //
+  // warpAndBlend(images);
 
   return 0;
 }
