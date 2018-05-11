@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
+#include <math.h>
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -17,12 +18,16 @@
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/stitching/detail/warpers.hpp>
+#include "details.cpp"
+
+
+#define PI 3.14159265
+
 using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace cv::detail;
 
-const int numImage = 2;
 const int MAX_FEATURES = 500;
 const float GOOD_MATCH_PERCENT = 0.15f;
 
@@ -110,7 +115,7 @@ Mat affineTransform(Mat im1, Mat im2) {
   vector<DMatch> goodMatches;
   vector<Point2f> points1, points2;
   for (int i = 0; i < min(keypoints1_res.size() - 1, matches.size()); i++) {
-    if (matches[i][0].distance < 0.6 * matches[i][1].distance &&
+    if (matches[i][0].distance < 0.45 * matches[i][1].distance &&
         ((int) matches[i].size() <= 2 && (int) matches[i].size() > 0)) {
         goodMatches.push_back(matches[i][0]);
         points1.push_back(keypoints1_res[matches[i][0].queryIdx].pt);
@@ -164,25 +169,49 @@ void alignImages(Mat im1, Mat im2) {
 
   namedWindow("warped", WINDOW_NORMAL);
   resizeWindow("warped", 1024, 600);
-  imshow ("warped", aligned);
+  imshow ("warped", roiImgRight);
   waitKey();
 }
 
 int main(int argc, char** argv) {
-  cv::Mat im1, im2, dst;
-
+  cv::Mat im1, im2, im1Warped, im2Warped;
+  homography();
+  getCalibrationDetails(numImage);
   im1 = imread("test32.png");
   im2 = imread("test23.png");
+  Ptr<WarperCreator> warperCreator = makePtr<cv::CylindricalWarper>();
+  Ptr<RotationWarper> warper = warperCreator->create(static_cast<float>(1000));
 
-  Mat h = affineTransform(im1, im2);
-  std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/affine/A32.yaml";
-  FileStorage file(filename, FileStorage::WRITE);
+    // Mat K, R, pose = Mat::eye(3, 3, CV_32F);
+    // vector<Mat> rotations, translations, normals;
+    // decomposeHomographyMat(homographies[0], calibrations[1].camera_matrix, rotations, translations, normals);
+    // for (int i = 0; i < rotations.size(); i++) {
+    //   cout << "Rotation " << i << endl << rotations[i] << endl;
+    // }
+    //
+    // decomposeHomographyMat(homographies[0], calibrations[0].camera_matrix, rotations, translations, normals);
+    // for (int i = 0; i < rotations.size(); i++) {
+    //   cout << "Rotation " << i << endl << rotations[i] << endl;
+    // }
 
-  file << "affine" << h;
-  file.release();
-  cout << "HELLO" << endl;
 
-  // alignImages(im1, im2);
+    // pose.colRange(0, 3).rowRange(0, 3).convertTo(R, CV_32F);
+    // calibrations[1].camera_matrix.convertTo(K, CV_32F);
+    //
+    // warper->warp(im2, K, R, INTER_LINEAR, BORDER_REFLECT, im2Warped);
+
+  // Mat h = affineTransform(im1Warped, im2Warped);
+  // std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/affine/test.yaml";
+  // FileStorage file(filename, FileStorage::WRITE);
+  //
+  // file << "affine" << h;
+  // file.release();
+  // cout << "HELLO" << endl;
+
+  // namedWindow("warped", WINDOW_NORMAL);
+  // resizeWindow("warped", 1024, 600);
+  // imshow ("warped", im2Warped);
+  // waitKey();
 
   return 0;
 }
