@@ -2,6 +2,7 @@
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/CompressedImage.h>
 #include <opencv2/stitching.hpp>
 #include <string>
 #include <sstream>
@@ -58,14 +59,14 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
   count++;
 }
 */
-void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
+void imageCallback(const sensor_msgs::CompressedImageConstPtr& msg) {
   try {
-     //cv::imshow("view", cv_bridge::toCvShare(msg, "bgr8")->image);
-     imwrite("images/ImageV" + to_string(count) + ".jpg", cv_bridge::toCvShare(msg, "bgr8")->image);
-     cv::waitKey(30);
-     count++;
+    //convert compressed image data to cv::Mat
+    Mat image = cv::imdecode(cv::Mat(msg->data), 1);
+    imshow("view", image);
+    waitKey();
   } catch (cv_bridge::Exception& e) {
-     ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+    ROS_ERROR("Could not convert to image!");
   }
 }
 
@@ -78,7 +79,7 @@ int main(int argc, char **argv) {
   cv::startWindowThread();
   image_transport::ImageTransport it(nh);
   int num_cam = atoi(argv[1]);
-  image_transport::Subscriber sub = it.subscribe("camera/image", 1, imageCallback);
+  ros::Subscriber sub = nh.subscribe("camera/compressed", 1, imageCallback);
 
   // pub = it.advertise("camera/stitched_image", 1);
 

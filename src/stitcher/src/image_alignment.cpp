@@ -7,7 +7,6 @@
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
 #include "details.cpp"
-#include "opencv2/stitching/detail/timelapsers.hpp"
 
 using namespace std;
 using namespace cv;
@@ -20,13 +19,13 @@ float conf_thresh = 1.f;
 float match_conf = 0.3f;
 float blend_strength = 5;
 string result_name = "result.jpg";
-bool timelapse = false;
 int range_width = -1;
 
 void stitch(vector<string> img_names) {
     Ptr<FeaturesFinder> finder = makePtr<SurfFeaturesFinderGpu>();
-    double work_scale = 1, seam_scale = 1, compose_scale = 1;
+    double work_scale = 0.5, seam_scale = 1, compose_scale = 1;
     bool is_work_scale_set = false, is_seam_scale_set = false, is_compose_scale_set = false;
+
 
     Mat full_img, img;
     vector<Mat> images(numImage);
@@ -105,14 +104,16 @@ void stitch(vector<string> img_names) {
     Ptr<WarperCreator> warper_creator;
     warper_creator = makePtr<cv::CylindricalWarperGpu>();
 
-    cout << "HELLO" << endl;
     if (!warper_creator)
     {
-        cout << "Can't create the following warper '" << warp_type << "'\n";
+        cout << "Can't create cylindrical warper" << endl;
         exit(1);
     }
 
     Ptr<RotationWarper> warper = warper_creator->create(static_cast<float>(warped_image_scale * seam_work_aspect));
+    clock_t start;
+    double duration;
+    start = clock();
 
     for (int i = 0; i < numImage; ++i)
     {
@@ -128,12 +129,12 @@ void stitch(vector<string> img_names) {
 
         warper->warp(masks[i], K, R, INTER_NEAREST, BORDER_CONSTANT, masks_warped[i]);
     }
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Warping time: " << duration << "\n";
 
     vector<UMat> images_warped_f(numImage);
     for (int i = 0; i < numImage; ++i)
         images_warped[i].convertTo(images_warped_f[i], CV_32F);
-
-    // LOGLN("Warping images, time: " << ((getTickCount() - t) / getTickFrequency()) << " sec");
 
     Ptr<ExposureCompensator> compensator = ExposureCompensator::createDefault(ExposureCompensator::GAIN_BLOCKS);
     compensator->feed(corners, images_warped, masks_warped);
@@ -149,21 +150,18 @@ void stitch(vector<string> img_names) {
 
     // Release unused memory
     images.clear();
-    images_warped.clear();
+    // images_warped.clear();
     images_warped_f.clear();
     masks.clear();
 
     Mat img_warped, img_warped_s;
     Mat dilated_mask, seam_mask, mask, mask_warped;
     Ptr<Blender> blender;
-    Ptr<Timelapser> timelapser;
     //double compose_seam_aspect = 1;
     double compose_work_aspect = 1;
 
     for (int img_idx = 0; img_idx < numImage; ++img_idx)
     {
-        // LOGLN("Compositing image #" << indices[img_idx]+1);
-
         // Read image and resize it if necessary
         full_img = imread(img_names[img_idx]);
         if (!is_compose_scale_set)
@@ -198,6 +196,7 @@ void stitch(vector<string> img_names) {
                 sizes[i] = roi.size();
             }
         }
+
         if (abs(compose_scale - 1) > 1e-1)
             resize(full_img, img, Size(), compose_scale, compose_scale, INTER_LINEAR_EXACT);
         else
@@ -229,7 +228,7 @@ void stitch(vector<string> img_names) {
         resize(dilated_mask, seam_mask, mask_warped.size(), 0, 0, INTER_LINEAR_EXACT);
         mask_warped = seam_mask & mask_warped;
 
-        if (!blender && !timelapse)
+        if (!blender)
         {
             blender = Blender::createDefault(Blender::MULTI_BAND, true);
             Size dst_sz = resultRoi(corners, sizes).size();
@@ -241,46 +240,22 @@ void stitch(vector<string> img_names) {
 
             blender->prepare(corners, sizes);
         }
-        else if (!timelapser && timelapse)
-        {
-            timelapser = Timelapser::createDefault(Timelapser::AS_IS);
-            timelapser->initialize(corners, sizes);
-        }
 
         // Blend the current image
-        if (timelapse)
-        {
-            timelapser->process(img_warped_s, Mat::ones(img_warped_s.size(), CV_8UC1), corners[img_idx]);
-            String fixedFileName;
-            size_t pos_s = String(img_names[img_idx]).find_last_of("/\\");
-            if (pos_s == String::npos)
-            {
-                fixedFileName = "fixed_" + img_names[img_idx];
-            }
-            else
-            {
-                fixedFileName = "fixed_" + String(img_names[img_idx]).substr(pos_s + 1, String(img_names[img_idx]).length() - pos_s);
-            }
-            imwrite(fixedFileName, timelapser->getDst());
-        }
-        else
-        {
-            blender->feed(img_warped_s, mask_warped, corners[img_idx]);
-        }
+        blender->feed(img_warped_s, mask_warped, corners[img_idx]);
     }
 
-    if (!timelapse)
-    {
-        Mat result, result_mask;
-        blender->blend(result, result_mask);
+    Mat result, result_s, result_mask;
+    blender->blend(result_s, result_mask);
 
-        // LOGLN("Compositing, time: " << ((getTickCount() - t) / getTickFrequency()) << " sec");
-
-        imshow(result_name, result);
-    }
+    // LOGLN("Compositing, time: " << ((getTickCount() - t) / getTickFrequency()) << " sec");
+    result_s.convertTo(result, CV_8U);
+    namedWindow("warped", WINDOW_NORMAL);
+    resizeWindow("warped", 1024, 600);
+    imshow ("warped", result);
+    waitKey();
 
     // LOGLN("Finished, total time: " << ((getTickCount() - app_start_time) / getTickFrequency()) << " sec");
-    exit(0);
 }
 
 int main(int argc, char** argv) {
@@ -290,18 +265,15 @@ int main(int argc, char** argv) {
 
   for (int i = numImage; i > 0; i--) {
     string filename = "test" + to_string(i) + ".png";
-    // Mat im = imread(filename);
-    //
-    // if (im.empty()) {
-    //   cout << "Image " + filename + "is not found!" << endl;
-    //   return ERROR;
-    // }
     images.push_back(filename);
   }
+
+  clock_t start;
+  double duration;
+  start = clock();
   stitch(images);
+  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  cout << "printf: " << duration << "\n";
+
   return 0;
-  //
-  // img_names.push_back("images/frame2.png");
-  // img_names.push_back("images/frame1.png");
-  // return findCameraPose();
 }

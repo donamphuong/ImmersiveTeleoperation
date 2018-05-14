@@ -1,11 +1,9 @@
 <launch>
   <arg name="name_space" default="stitcher" />
   <node name="image_publisher" pkg="stitcher" type="image_publisher" args="2">
+    <param name="image_transport" value="compressed" />
   </node>
 
   <node name="image_processing" pkg="stitcher" type="image_processing" args="2">
   </node>
-
-  <!-- this line is for: ROS_NAMESPACE=usb_cam rosrun image_proc image_proc -->
-  <node name="image_proc" pkg="image_proc" type="image_proc" ns="$(arg name_space)"/>
 </launch>
