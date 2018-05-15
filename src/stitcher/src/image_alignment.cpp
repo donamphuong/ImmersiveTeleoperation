@@ -102,7 +102,7 @@ void stitch(vector<string> img_names) {
     // Warp images and their masks
 
     Ptr<WarperCreator> warper_creator;
-    warper_creator = makePtr<cv::CylindricalWarperGpu>();
+    warper_creator = makePtr<cv::SphericalWarperGpu>();
 
     if (!warper_creator)
     {
@@ -139,14 +139,16 @@ void stitch(vector<string> img_names) {
     Ptr<ExposureCompensator> compensator = ExposureCompensator::createDefault(ExposureCompensator::GAIN_BLOCKS);
     compensator->feed(corners, images_warped, masks_warped);
 
-    Ptr<SeamFinder> seam_finder = makePtr<detail::GraphCutSeamFinder>(GraphCutSeamFinderBase::COST_COLOR);
+    Ptr<SeamFinder> seam_finder = makePtr<detail::GraphCutSeamFinder>(GraphCutSeamFinderBase::COST_COLOR_GRAD);
     if (!seam_finder)
     {
         cout << "Can't create graph cut seam finder" << endl;
         exit(1);
     }
-
+    start = clock();
     seam_finder->find(images_warped_f, corners, masks_warped);
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Finding seam time: " << duration << "\n";
 
     // Release unused memory
     images.clear();
@@ -236,17 +238,22 @@ void stitch(vector<string> img_names) {
 
             MultiBandBlender* mb = dynamic_cast<MultiBandBlender*>(blender.get());
             mb->setNumBands(static_cast<int>(ceil(log(blend_width)/log(2.)) - 1.));
-            // LOGLN("Multi-band blender, number of bands: " << mb->numBands());
 
             blender->prepare(corners, sizes);
         }
 
+        start = clock();
         // Blend the current image
         blender->feed(img_warped_s, mask_warped, corners[img_idx]);
+        duration += (clock() - start) / (double) CLOCKS_PER_SEC;
     }
+    cout << "Feeding time: " << duration << "\n";
 
+    start = clock();
     Mat result, result_s, result_mask;
     blender->blend(result_s, result_mask);
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Blending time: " << duration << "\n";
 
     // LOGLN("Compositing, time: " << ((getTickCount() - t) / getTickFrequency()) << " sec");
     result_s.convertTo(result, CV_8U);

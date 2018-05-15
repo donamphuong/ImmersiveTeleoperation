@@ -6,56 +6,25 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/stitching.hpp>
 #include <string>
+#include "details.cpp"
 
 using namespace cv;
 
-class CalibrationDetails {
-  public:
-  Mat camera_matrix;
-  Mat distortion;
-  Mat rectification;
-  Mat projection;
-};
+image_transport::Publisher pub;
 
-std::vector<CalibrationDetails> calibrations;
-
-std::string to_string(int x) {
-  std::stringstream stream;
-  stream << x;
-  return stream.str();
-}
-
-void getCalibrationDetails(int num_cam) {
-  for (int i = 1; i < num_cam+1; i++) {
-    CalibrationDetails cal;
-    std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(i) + ".yaml";
-    FileStorage fs(filename, FileStorage::READ);
-
-    if (!fs.isOpened()) {
-      std::cout << "Could not open the configuration file" << std::endl;
-      exit(-1) ;
-    }
-
-    fs["camera_matrix"] >> cal.camera_matrix;
-    fs["distortion_coefficients"] >> cal.distortion;
-    fs["rectification_matrix"] >> cal.rectification;
-    fs["projection_matrix"] >> cal.projection;
-    fs.release();
-
-    calibrations.push_back(cal);
-  }
-}
-
+//Show contents of cameras after calibrations
 void save_frame(VideoCapture cap, std::vector<Mat>& images, int cam) {
   Mat frame;
-  sensor_msgs::ImagePtr msg;
   cap >> frame;
   //Check if the grabbed frame is actually full with some content
   if (!frame.empty()) {
     Mat corrected;
 
     undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
-    images.push_back(corrected);
+    // images.push_back(corrected);
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
+    pub.publish(msg);
+
     imshow("view" + to_string(cam+1), corrected);
     cv::waitKey(1);
   }
@@ -74,8 +43,8 @@ int main(int argc, char** argv) {
   int num_cam = atoi(argv[1]);
   getCalibrationDetails(num_cam);
 
-  // cv::namedWindow("view1");
-  // cv::startWindowThread();
+  cv::namedWindow("view1");
+  cv::startWindowThread();
   // cv::namedWindow("view2");
   // cv::startWindowThread();
   ros::Rate loop_rate(20);
@@ -83,24 +52,24 @@ int main(int argc, char** argv) {
 
   //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
   //This will buffer up to 1 message before beginning to throw away old ones
-  image_transport::Publisher pub = it.advertise("camera", 1);
-  // cv::VideoCapture cap[num_cam];
-  //
-  // for (int video_source = 1; video_source < num_cam + 1; video_source++) {
-  //   cap[video_source-1].open(video_source);
-  //
-  //   //Check if video device can be opened with the given index
-  //   if (!cap[video_source-1].isOpened()) return 1;
-  // }
+  pub = it.advertise("camera", 1);
+  cv::VideoCapture cap[num_cam];
 
-  Mat pano = imread("result.jpg");
-  sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", pano).toImageMsg();
+  for (int video_source = 1; video_source < num_cam + 1; video_source++) {
+    cap[video_source-1].open(video_source-1);
+
+    //Check if video device can be opened with the given index
+    if (!cap[video_source-1].isOpened()) {
+      std::cout << "Device " << std::to_string(video_source-1) << " cannot be opened!" << std::endl;
+      return 1;
+    }
+  }
 
   while (nh.ok()) {
-    // std::vector<Mat> images;
-    // for (int i = 0; i < num_cam; i++) {
-    //   save_frame(cap[i], images, i);
-    // }
+    std::vector<Mat> images;
+    for (int i = 0; i < num_cam; i++) {
+      save_frame(cap[i], images, i);
+    }
 
     // Mat pano;
     // //Converting ROS image message to an OpenCV image with BGR pixel encoding, then show it in a display window
@@ -114,7 +83,7 @@ int main(int argc, char** argv) {
 
     // imshow("stitched images", pano);
 
-    pub.publish(msg);
+    // pub.publish(msg);
 
     ros::spinOnce();
     loop_rate.sleep();
