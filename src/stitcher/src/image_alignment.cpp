@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/cuda.hpp>
 #include "details.cpp"
 
 using namespace std;
@@ -21,18 +22,18 @@ float warped_image_scale;
 Size image_scale_size = Size(422, 237);
 Size image_size = Size(1920, 1080);
 
-vector<UMat> sphericalImageUXMap(numImage);
-vector<UMat> sphericalImageUYMap(numImage);
+vector<cuda::GpuMat> sphericalImageUXMap(numImage);
+vector<cuda::GpuMat> sphericalImageUYMap(numImage);
 vector<Rect> sphericalImageROI(numImage);
-vector<UMat> sphericalMaskUXMap(numImage);
-vector<UMat> sphericalMaskUYMap(numImage);
+vector<cuda::GpuMat> sphericalMaskUXMap(numImage);
+vector<cuda::GpuMat> sphericalMaskUYMap(numImage);
 vector<Rect> sphericalMaskROI(numImage);
 
-vector<UMat> composedImageUXMap(numImage);
-vector<UMat> composedImageUYMap(numImage);
+vector<cuda::GpuMat> composedImageUXMap(numImage);
+vector<cuda::GpuMat> composedImageUYMap(numImage);
 vector<Rect> composedImageROI(numImage);
-vector<UMat> composedMaskeUXMap(numImage);
-vector<UMat> composedMaskUYMap(numImage);
+vector<cuda::GpuMat> composedMaskeUXMap(numImage);
+vector<cuda::GpuMat> composedMaskUYMap(numImage);
 vector<Rect> composedMaskROI(numImage);
 
 Ptr<FeaturesFinder> finder;
@@ -55,8 +56,22 @@ void buildComposedMaps() {
       newCameraMatrix.convertTo(K, CV_32F);
       rotationMatrix[i].convertTo(R, CV_32F);
 
-      composedImageROI[i] = warper->buildMaps(image_size, K, R, composedImageUXMap[i], composedImageUYMap[i]);
-      composedMaskROI[i] = warper->buildMaps(image_size, K, R, composedMaskeUXMap[i], composedMaskUYMap[i]);
+      Mat imUXMap, imUYMap, maskUXMap, maskUYMap;
+      composedImageROI[i] = warper->buildMaps(image_size, K, R, imUXMap, imUYMap);
+      composedMaskROI[i] = warper->buildMaps(image_size, K, R, maskUXMap, maskUYMap);
+
+      cuda::GpuMat imGpuUXMap(imUXMap);
+      composedImageUXMap[i] = imGpuUXMap;
+      imGpuUXMap.release();
+      cuda::GpuMat imGpuUYMap(imUYMap);
+      composedImageUYMap[i] = imGpuUYMap;
+      imGpuUYMap.release();
+      cuda::GpuMat maskGpuUXMap(maskUXMap);
+      composedMaskeUXMap[i] = maskGpuUXMap;
+      maskGpuUXMap.release();
+      cuda::GpuMat maskGpuUYMap(maskUYMap);
+      composedMaskUYMap[i] = maskGpuUYMap;
+      maskGpuUYMap.release();
   }
 }
 
@@ -79,8 +94,22 @@ void buildSphericalMaps() {
       K(0,0) *= swa; K(0,2) *= swa;
       K(1,1) *= swa; K(1,2) *= swa;
 
-      sphericalImageROI[i] = warper->buildMaps(image_scale_size, K, R, sphericalImageUXMap[i], sphericalImageUYMap[i]);
-      sphericalMaskROI[i] = warper->buildMaps(image_scale_size, K, R, sphericalMaskUXMap[i], sphericalMaskUYMap[i]);
+      Mat imUXMap, imUYMap, maskUXMap, maskUYMap;
+      sphericalImageROI[i] = warper->buildMaps(image_scale_size, K, R, imUXMap, imUYMap);
+      sphericalMaskROI[i] = warper->buildMaps(image_scale_size, K, R, maskUXMap, maskUYMap);
+
+      cuda::GpuMat imGpuUXMap(imUXMap);
+      sphericalImageUXMap[i] = imGpuUXMap;
+      imGpuUXMap.release();
+      cuda::GpuMat imGpuUYMap(imUYMap);
+      sphericalImageUYMap[i] = imGpuUYMap;
+      imGpuUYMap.release();
+      cuda::GpuMat maskGpuUXMap(maskUXMap);
+      sphericalMaskUXMap[i] = maskGpuUXMap;
+      maskGpuUXMap.release();
+      cuda::GpuMat maskGpuUYMap(maskUYMap);
+      sphericalMaskUYMap[i] = maskGpuUYMap;
+      maskGpuUYMap.release();
   }
 }
 
@@ -96,97 +125,112 @@ void precomp() {
   warped_image_scale = newCameraMatrix.at<double>(0, 0);
 
   buildSphericalMaps();
-  // buildComposedMaps();
+  buildComposedMaps();
+
+  seam_finder = makePtr<detail::GraphCutSeamFinder>(GraphCutSeamFinderBase::COST_COLOR_GRAD);
 }
 
-int beforeStitch(vector<string> img_names) {
-    Mat full_img, img;
-    int num_images = static_cast<int>(img_names.size());
-    vector<ImageFeatures> features(num_images);
-    vector<Mat> images(num_images);
-    vector<Size> full_img_sizes(num_images);
-    Ptr<FeaturesFinder> finder = makePtr<SurfFeaturesFinderGpu>();
-    double seam_work_aspect = 1;
+// int beforeStitch(vector<string> img_names) {
+//     Mat full_img, img;
+//     int num_images = static_cast<int>(img_names.size());
+//     vector<ImageFeatures> features(num_images);
+//     vector<Mat> images(num_images);
+//     vector<Size> full_img_sizes(num_images);
+//     Ptr<FeaturesFinder> finder = makePtr<SurfFeaturesFinderGpu>();
+//     double seam_work_aspect = 1;
+//
+//     for (int i = 0; i < num_images; ++i)
+//     {
+//       full_img = imread(img_names[i]);
+//       full_img_sizes[i] = full_img.size();
+//
+//       if (full_img.empty())
+//       {
+//         cout << "Cannot open images" << endl;
+//          return -1;
+//       }
+//       resize(full_img, img, Size(), work_scale, work_scale, INTER_LINEAR_EXACT);
+//       (*finder)(img, features[i]);
+//       features[i].img_idx = i;
+//
+//       resize(full_img, img, Size(), seam_scale, seam_scale, INTER_LINEAR_EXACT);
+//     }
+//
+//   float conf_thresh = 1.f;
+//   vector<MatchesInfo> pairwise_matches;
+//   float match_conf = 0.3f;
+//
+//     Ptr<FeaturesMatcher> matcher = makePtr<BestOf2NearestMatcher>(true, match_conf);
+//
+//     (*matcher)(features, pairwise_matches);
+//     matcher->collectGarbage();
+//
+//     // // Leave only images we are sure are from the same panorama
+//     // vector<int> indices = leaveBiggestComponent(features, pairwise_matches, conf_thresh);
+//     // vector<Mat> img_subset;
+//     // vector<String> img_names_subset;
+//     // vector<Size> full_img_sizes_subset;
+//     // for (size_t i = 0; i < indices.size(); ++i)
+//     // {
+//     //     img_names_subset.push_back(img_names[indices[i]]);
+//     //     img_subset.push_back(images[indices[i]]);
+//     //     full_img_sizes_subset.push_back(full_img_sizes[indices[i]]);
+//     // }
+//     //
+//     // images = img_subset;
+//     // img_names = img_names_subset;
+//     // full_img_sizes = full_img_sizes_subset;
+//
+//     // Check if we still have enough images
+//     num_images = static_cast<int>(img_names.size());
+//     if (num_images < 2)
+//     {
+//         cout << "Need more images" << endl;
+//         return -1;
+//     }
+//
+//     Ptr<Estimator> estimator = makePtr<HomographyBasedEstimator>();
+//
+//     vector<CameraParams> cameras;
+//     if (!(*estimator)(features, pairwise_matches, cameras))
+//     {
+//         cout << "Homography estimation failed.\n";
+//         return -1;
+//     }
+//
+//     for (size_t i = 0; i < cameras.size(); ++i)
+//     {
+//         Mat R;
+//         cameras[i].R.convertTo(R, CV_32F);
+//         cameras[i].R = R;
+//
+//         cout << "K" << cameras[i].K() << endl;
+//         cout << "R" << cameras[i].R << endl;
+//
+//     }
+// }
 
-    for (int i = 0; i < num_images; ++i)
-    {
-      full_img = imread(img_names[i]);
-      full_img_sizes[i] = full_img.size();
+void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy) {
+  clock_t start = clock();
+  cuda::GpuMat inputGpu(src);
+  cuda::GpuMat outputGpu;
 
-      if (full_img.empty())
-      {
-        cout << "Cannot open images" << endl;
-         return -1;
-      }
-      resize(full_img, img, Size(), work_scale, work_scale, INTER_LINEAR_EXACT);
-      (*finder)(img, features[i]);
-      features[i].img_idx = i;
+  cuda::resize(inputGpu, outputGpu, size, fx, fy, INTER_LINEAR);
+  outputGpu.download(dst);
 
-      resize(full_img, img, Size(), seam_scale, seam_scale, INTER_LINEAR_EXACT);
-    }
-
-  float conf_thresh = 1.f;
-  vector<MatchesInfo> pairwise_matches;
-  float match_conf = 0.3f;
-
-    Ptr<FeaturesMatcher> matcher = makePtr<BestOf2NearestMatcher>(true, match_conf);
-
-    (*matcher)(features, pairwise_matches);
-    matcher->collectGarbage();
-
-    // // Leave only images we are sure are from the same panorama
-    // vector<int> indices = leaveBiggestComponent(features, pairwise_matches, conf_thresh);
-    // vector<Mat> img_subset;
-    // vector<String> img_names_subset;
-    // vector<Size> full_img_sizes_subset;
-    // for (size_t i = 0; i < indices.size(); ++i)
-    // {
-    //     img_names_subset.push_back(img_names[indices[i]]);
-    //     img_subset.push_back(images[indices[i]]);
-    //     full_img_sizes_subset.push_back(full_img_sizes[indices[i]]);
-    // }
-    //
-    // images = img_subset;
-    // img_names = img_names_subset;
-    // full_img_sizes = full_img_sizes_subset;
-
-    // Check if we still have enough images
-    num_images = static_cast<int>(img_names.size());
-    if (num_images < 2)
-    {
-        cout << "Need more images" << endl;
-        return -1;
-    }
-
-    Ptr<Estimator> estimator = makePtr<HomographyBasedEstimator>();
-
-    vector<CameraParams> cameras;
-    if (!(*estimator)(features, pairwise_matches, cameras))
-    {
-        cout << "Homography estimation failed.\n";
-        return -1;
-    }
-
-    for (size_t i = 0; i < cameras.size(); ++i)
-    {
-        Mat R;
-        cameras[i].R.convertTo(R, CV_32F);
-        cameras[i].R = R;
-
-        cout << "K" << cameras[i].K() << endl;
-        cout << "R" << cameras[i].R << endl;
-
-    }
+  inputGpu.release();
+  outputGpu.release();
+  cout << "resizing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 }
 
-void stitch(vector<Mat> full_images) {
+void stitch(vector<cuda::GpuMat> full_images) {
     clock_t start, startWarp;
     double duration, warpTime;
     Mat K;
     newCameraMatrix.convertTo(K, CV_32F);
 
-    Mat full_img, img;
-    vector<Mat> images(numImage);
+    cuda::GpuMat full_img, img;
+    vector<cuda::GpuMat> images(numImage);
     vector<Size> full_img_sizes(numImage);
 
     start = clock();
@@ -202,28 +246,33 @@ void stitch(vector<Mat> full_images) {
             exit(-1);
         }
 
-        resize(full_img, img, Size(), work_scale, work_scale, INTER_LINEAR_EXACT);
-        resize(full_img, img, Size(), seam_scale, seam_scale, INTER_LINEAR_EXACT);
+        startWarp = clock();
+        cuda::resize(full_img, img, Size(), work_scale, work_scale, INTER_LINEAR);
+        cuda::resize(full_img, img, Size(), seam_scale, seam_scale, INTER_LINEAR);
+        warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
 
         images[i] = img.clone();
     }
-    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-    cout << "Reading images " << duration << endl;
 
     full_img.release();
     img.release();
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Reading images " << duration << endl;
 
-    vector<UMat> masks(numImage);
+    start = clock();
+    vector<cuda::GpuMat> masks(numImage);
     vector<Point> corners(numImage);
     vector<Size> sizes(numImage);
-    vector<UMat> masks_warped(numImage);
-    vector<UMat> images_warped(numImage);
+    vector<cuda::GpuMat> masks_warped(numImage);
+    vector<cuda::GpuMat> images_warped(numImage);
 
     // Preapre images masks
     for (int i = 0; i < numImage; ++i) {
         masks[i].create(images[i].size(), CV_8U);
         masks[i].setTo(Scalar::all(255));
     }
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Creating masks: " << duration << endl;
 
     start = clock();
     //Warping Image
@@ -231,38 +280,42 @@ void stitch(vector<Mat> full_images) {
       //Warping image based on precomputed spherical map
       Rect image_roi = sphericalImageROI[i];
       images_warped[i].create(image_roi.height + 1, image_roi.width + 1, images[i].type());
-      remap(images[i], images_warped[i], sphericalImageUXMap[i], sphericalImageUYMap[i], INTER_LINEAR, BORDER_REFLECT);
+      cuda::remap(images[i], images_warped[i], sphericalImageUXMap[i], sphericalImageUYMap[i], INTER_LINEAR, BORDER_REFLECT);
       corners[i] = image_roi.tl();
       sizes[i] = images_warped[i].size();
 
       //Warping mask based on precomputed spherical map
       Rect mask_roi = sphericalMaskROI[i];
       masks_warped[i].create(mask_roi.height + 1, mask_roi.width + 1, masks[i].type());
-      remap(masks[i], masks_warped[i], sphericalMaskUXMap[i], sphericalMaskUYMap[i], INTER_NEAREST, BORDER_CONSTANT);
+      cuda::remap(masks[i], masks_warped[i], sphericalMaskUXMap[i], sphericalMaskUYMap[i], INTER_NEAREST, BORDER_CONSTANT);
     }
 
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Warping time: " << duration << "\n";
 
+    start = clock();
     vector<UMat> images_warped_f(numImage);
+    vector<UMat> masks_warped_cpu(numImage);
     for (int i = 0; i < numImage; ++i) {
-      images_warped[i].convertTo(images_warped_f[i], CV_32F);
+      images_warped[i].download(images_warped_f[i]);
+      masks_warped[i].download(masks_warped_cpu[i]);
     }
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Conversion time: " << duration << "\n";
 
     compensator = ExposureCompensator::createDefault(ExposureCompensator::GAIN);
     start = clock();
-    compensator->feed(corners, images_warped, masks_warped);
+    compensator->feed(corners, images_warped_f, masks_warped_cpu);
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Exposure Compensating Time: " << duration << endl;
 
-    seam_finder = makePtr<detail::GraphCutSeamFinder>(GraphCutSeamFinderBase::COST_COLOR_GRAD);
     if (!seam_finder) {
         cout << "Can't create graph cut seam finder" << endl;
         exit(1);
     }
 
     start = clock();
-    seam_finder->find(images_warped_f, corners, masks_warped);
+    seam_finder->find(images_warped_f, corners, masks_warped_cpu);
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Finding seam time: " << duration << "\n";
 
@@ -272,16 +325,16 @@ void stitch(vector<Mat> full_images) {
     images_warped_f.clear();
     masks.clear();
 
-    Mat img_warped, img_warped_s;
-    Mat dilated_mask, seam_mask, mask, mask_warped;
+    cuda::GpuMat img_warped;
+    cuda::GpuMat mask, mask_warped;
+    Mat img_warped_cpu, img_warped_cpu_s, dilated_mask, seam_mask, mask_warped_cpu;
     bool has_updated_corners_sizes = false;
 
     start = clock();
     for (int img_idx = 0; img_idx < numImage; ++img_idx) {
         // Read image and resize it if necessary
-        startWarp = clock();
-        full_img = full_images[img_idx];
-        warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
+        img = full_images[img_idx];
+        Size img_size = img.size();
 
         if (!has_updated_corners_sizes) {
           // Update corners and sizes
@@ -297,46 +350,48 @@ void stitch(vector<Mat> full_images) {
           }
           has_updated_corners_sizes = true;
         }
-
-        img = full_img;
-
-        full_img.release();
-        Size img_size = img.size();
-
         Mat R;
         rotationMatrix[img_idx].convertTo(R, CV_32F);
 
-        // //Warping image based on precomputed spherical map
-        // Rect image_roi = composedImageROI[img_idx];
-        // img_warped.create(image_roi.height + 1, image_roi.width + 1, img.type());
-        // remap(img, img_warped, composedImageUXMap[img_idx], composedImageUYMap[img_idx], INTER_LINEAR, BORDER_REFLECT);
-        //
-        // mask.create(img_size, CV_8U);
-        // mask.setTo(Scalar::all(255));
-        // //Warping mask based on precomputed spherical map
-        // Rect mask_roi = composedMaskROI[img_idx];
-        // mask_warped.create(mask_roi.height + 1, mask_roi.width + 1, mask.type());
-        // remap(mask, mask_warped, composedMaskeUXMap[img_idx], composedMaskUYMap[img_idx], INTER_NEAREST, BORDER_CONSTANT);
-        warper->warp(img, K, R, INTER_NEAREST, BORDER_CONSTANT, img_warped);
+        startWarp = clock();
+        //Warping image based on precomputed spherical map
+        Rect image_roi = composedImageROI[img_idx];
+        img_warped.create(image_roi.height + 1, image_roi.width + 1, img.type());
+        cuda::remap(img, img_warped, composedImageUXMap[img_idx], composedImageUYMap[img_idx], INTER_LINEAR, BORDER_REFLECT);
 
         mask.create(img_size, CV_8U);
         mask.setTo(Scalar::all(255));
-        warper->warp(mask, K, R, INTER_NEAREST, BORDER_CONSTANT, mask_warped);
+        //Warping mask based on precomputed spherical map
+        Rect mask_roi = composedMaskROI[img_idx];
+        mask_warped.create(mask_roi.height + 1, mask_roi.width + 1, mask.type());
+        cuda::remap(mask, mask_warped, composedMaskeUXMap[img_idx], composedMaskUYMap[img_idx], INTER_NEAREST, BORDER_CONSTANT);
+        // warper->warp(img_cpu, K, R, INTER_NEAREST, BORDER_CONSTANT, img_warped);
+        //
+        // mask.create(img_size, CV_8U);
+        // mask.setTo(Scalar::all(255));
+        // warper->warp(mask, K, R, INTER_NEAREST, BORDER_CONSTANT, mask_warped);
+        // warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
 
+        img_warped.download(img_warped_cpu);
         // Compensate exposure
-        compensator->apply(img_idx, corners[img_idx], img_warped, mask_warped);
+        compensator->apply(img_idx, corners[img_idx], img_warped_cpu, mask_warped);
 
-        img_warped.convertTo(img_warped_s, CV_16S);
+        img_warped_cpu.convertTo(img_warped_cpu_s, CV_16S);
         img_warped.release();
+        img_warped_cpu.release();
         img.release();
         mask.release();
 
-        dilate(masks_warped[img_idx], dilated_mask, Mat());
-        resize(dilated_mask, seam_mask, mask_warped.size(), 0, 0, INTER_LINEAR_EXACT);
-        mask_warped = seam_mask & mask_warped;
+        mask_warped.download(mask_warped_cpu);
+        dilate(masks_warped_cpu[img_idx], dilated_mask, Mat());
 
-        if (!blender)
-        {
+        startWarp = clock();
+        resize(dilated_mask, seam_mask, mask_warped_cpu.size(), 0, 0, INTER_LINEAR);
+        warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
+
+        mask_warped_cpu = seam_mask & mask_warped_cpu;
+
+        if (!blender) {
             float blend_strength = 5;
             blender = Blender::createDefault(Blender::MULTI_BAND, true);
             Size dst_sz = resultRoi(corners, sizes).size();
@@ -345,30 +400,27 @@ void stitch(vector<Mat> full_images) {
             MultiBandBlender* mb = dynamic_cast<MultiBandBlender*>(blender.get());
             mb->setNumBands(static_cast<int>(ceil(log(blend_width)/log(2.)) - 1.));
 
-            start = clock();
             blender->prepare(corners, sizes);
-            duration += (clock() - start) / (double) CLOCKS_PER_SEC;
-            cout << "Preparing Blender: " << duration << endl;
         }
 
         // Blend the current image
-        blender->feed(img_warped_s, mask_warped, corners[img_idx]);
-        duration += (clock() - start) / (double) CLOCKS_PER_SEC;
+        blender->feed(img_warped_cpu_s, mask_warped_cpu, corners[img_idx]);
     }
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Loop time: " << duration << "\n";
 
     start = clock();
     Mat result, result_s, result_mask;
     blender->blend(result_s, result_mask);
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-    cout << "Blending time: " << duration << "\n";
-    cout << "Warping 2nd time: " << warpTime << endl;
-    
-    result_s.convertTo(result, CV_8U);
-    namedWindow("warped", WINDOW_NORMAL);
-    resizeWindow("warped", 1024, 600);
-    imshow ("warped", result);
-    waitKey();
+    cout << "Blending time: " << duration << endl;
+    cout << "Resizing time: " << warpTime << endl;
+
+    // result_s.convertTo(result, CV_8U);
+    // namedWindow("warped", WINDOW_NORMAL);
+    // resizeWindow("warped", 1024, 600);
+    // imshow ("warped", result);
+    // waitKey();
 }
 
 int main(int argc, char** argv) {
@@ -379,11 +431,13 @@ int main(int argc, char** argv) {
   duration = (clock() - start) / (double) CLOCKS_PER_SEC;
   cout << "Get Calibration Details time: " << duration << "\n";
 
-  vector<Mat> images;
+  vector<cuda::GpuMat> images;
 
   for (int i = numImage; i > 0; i--) {
     string filename = "test" + to_string(i) + ".png";
-    images.push_back(imread(filename));
+    Mat im = imread(filename);
+    cuda::GpuMat imGpu(im);
+    images.push_back(imGpu);
   }
 
   precomp();
