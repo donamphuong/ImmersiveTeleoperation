@@ -15,6 +15,7 @@ using namespace cv::detail;
 double work_scale = 0.5;
 double seam_scale = 1;
 double compose_scale = 1;
+double compose_work_aspect = 1;
 double seam_work_aspect = 1;
 float warped_image_scale;
 Size image_scale_size = Size(422, 237);
@@ -41,26 +42,7 @@ Ptr<ExposureCompensator> compensator;
 Ptr<SeamFinder> seam_finder;
 Ptr<Blender> blender;
 
-// Find median focal length
-void findMedianFocals() {
-  vector<double> focals;
-  for (size_t i = 0; i < calibrations.size(); ++i)
-  {
-      // LOGLN("Camera #" << indices[i]+1 << ":\nK:\n" << cameras[i].K() << "\nR:\n" << cameras[i].R);
-      focals.push_back((calibrations[i].camera_matrix.at<double>(0, 0) + calibrations[i].camera_matrix.at<double>(1, 1))/2);
-  }
-
-  sort(focals.begin(), focals.end());
-  if (focals.size() % 2 == 1) {
-    warped_image_scale = static_cast<float>(focals[focals.size() / 2]);
-  } else {
-    warped_image_scale = static_cast<float>(focals[focals.size() / 2 - 1] + focals[focals.size() / 2]) * 0.5f;
-  }
-}
-
 void buildComposedMaps() {
-  double compose_work_aspect = 1;
-
   // Compute relative scales
   compose_work_aspect = compose_scale / work_scale;
 
@@ -70,8 +52,8 @@ void buildComposedMaps() {
 
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
-      calibrations[i].camera_matrix.convertTo(K, CV_32F);
-      calibrations[i].rectification.convertTo(R, CV_32F);
+      newCameraMatrix.convertTo(K, CV_32F);
+      rotationMatrix[i].convertTo(R, CV_32F);
 
       composedImageROI[i] = warper->buildMaps(image_size, K, R, composedImageUXMap[i], composedImageUYMap[i]);
       composedMaskROI[i] = warper->buildMaps(image_size, K, R, composedMaskeUXMap[i], composedMaskUYMap[i]);
@@ -91,8 +73,8 @@ void buildSphericalMaps() {
 
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
-      calibrations[i].camera_matrix.convertTo(K, CV_32F);
-      calibrations[i].rectification.convertTo(R, CV_32F);
+      newCameraMatrix.convertTo(K, CV_32F);
+      rotationMatrix[i].convertTo(R, CV_32F);
       float swa = (float)seam_work_aspect;
       K(0,0) *= swa; K(0,2) *= swa;
       K(1,1) *= swa; K(1,2) *= swa;
@@ -110,29 +92,113 @@ void precomp() {
   seam_scale = min(1.0, sqrt(seam_megapix * 1e6 / image_size.area()));
   seam_work_aspect = seam_scale / work_scale;
 
-  findMedianFocals();
+  //TODO: Using constant K
+  warped_image_scale = newCameraMatrix.at<double>(0, 0);
+
   buildSphericalMaps();
-  buildComposedMaps();
+  // buildComposedMaps();
 }
 
-void stitch(vector<string> img_names) {
-    bool is_work_scale_set = false, is_seam_scale_set = false, is_compose_scale_set = false;
-    clock_t start;
+int beforeStitch(vector<string> img_names) {
+    Mat full_img, img;
+    int num_images = static_cast<int>(img_names.size());
+    vector<ImageFeatures> features(num_images);
+    vector<Mat> images(num_images);
+    vector<Size> full_img_sizes(num_images);
+    Ptr<FeaturesFinder> finder = makePtr<SurfFeaturesFinderGpu>();
+    double seam_work_aspect = 1;
+
+    for (int i = 0; i < num_images; ++i)
+    {
+      full_img = imread(img_names[i]);
+      full_img_sizes[i] = full_img.size();
+
+      if (full_img.empty())
+      {
+        cout << "Cannot open images" << endl;
+         return -1;
+      }
+      resize(full_img, img, Size(), work_scale, work_scale, INTER_LINEAR_EXACT);
+      (*finder)(img, features[i]);
+      features[i].img_idx = i;
+
+      resize(full_img, img, Size(), seam_scale, seam_scale, INTER_LINEAR_EXACT);
+    }
+
+  float conf_thresh = 1.f;
+  vector<MatchesInfo> pairwise_matches;
+  float match_conf = 0.3f;
+
+    Ptr<FeaturesMatcher> matcher = makePtr<BestOf2NearestMatcher>(true, match_conf);
+
+    (*matcher)(features, pairwise_matches);
+    matcher->collectGarbage();
+
+    // // Leave only images we are sure are from the same panorama
+    // vector<int> indices = leaveBiggestComponent(features, pairwise_matches, conf_thresh);
+    // vector<Mat> img_subset;
+    // vector<String> img_names_subset;
+    // vector<Size> full_img_sizes_subset;
+    // for (size_t i = 0; i < indices.size(); ++i)
+    // {
+    //     img_names_subset.push_back(img_names[indices[i]]);
+    //     img_subset.push_back(images[indices[i]]);
+    //     full_img_sizes_subset.push_back(full_img_sizes[indices[i]]);
+    // }
+    //
+    // images = img_subset;
+    // img_names = img_names_subset;
+    // full_img_sizes = full_img_sizes_subset;
+
+    // Check if we still have enough images
+    num_images = static_cast<int>(img_names.size());
+    if (num_images < 2)
+    {
+        cout << "Need more images" << endl;
+        return -1;
+    }
+
+    Ptr<Estimator> estimator = makePtr<HomographyBasedEstimator>();
+
+    vector<CameraParams> cameras;
+    if (!(*estimator)(features, pairwise_matches, cameras))
+    {
+        cout << "Homography estimation failed.\n";
+        return -1;
+    }
+
+    for (size_t i = 0; i < cameras.size(); ++i)
+    {
+        Mat R;
+        cameras[i].R.convertTo(R, CV_32F);
+        cameras[i].R = R;
+
+        cout << "K" << cameras[i].K() << endl;
+        cout << "R" << cameras[i].R << endl;
+
+    }
+}
+
+void stitch(vector<Mat> full_images) {
+    clock_t start, startWarp;
     double duration, warpTime;
+    Mat K;
+    newCameraMatrix.convertTo(K, CV_32F);
 
     Mat full_img, img;
     vector<Mat> images(numImage);
     vector<Size> full_img_sizes(numImage);
 
+    start = clock();
     for (int i = 0; i < numImage; ++i)
     {
-        full_img = imread(img_names[i]);
+        full_img = full_images[i];
         full_img_sizes[i] = full_img.size();
 
         if (full_img.empty())
         {
 
-            cout << "Can't open image " << img_names[i];
+            cout << "Image is empty" << endl;
             exit(-1);
         }
 
@@ -141,6 +207,8 @@ void stitch(vector<string> img_names) {
 
         images[i] = img.clone();
     }
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Reading images " << duration << endl;
 
     full_img.release();
     img.release();
@@ -177,18 +245,22 @@ void stitch(vector<string> img_names) {
     cout << "Warping time: " << duration << "\n";
 
     vector<UMat> images_warped_f(numImage);
-    for (int i = 0; i < numImage; ++i)
-        images_warped[i].convertTo(images_warped_f[i], CV_32F);
+    for (int i = 0; i < numImage; ++i) {
+      images_warped[i].convertTo(images_warped_f[i], CV_32F);
+    }
 
-    compensator = ExposureCompensator::createDefault(ExposureCompensator::GAIN_BLOCKS);
+    compensator = ExposureCompensator::createDefault(ExposureCompensator::GAIN);
+    start = clock();
     compensator->feed(corners, images_warped, masks_warped);
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Exposure Compensating Time: " << duration << endl;
 
     seam_finder = makePtr<detail::GraphCutSeamFinder>(GraphCutSeamFinderBase::COST_COLOR_GRAD);
-    if (!seam_finder)
-    {
+    if (!seam_finder) {
         cout << "Can't create graph cut seam finder" << endl;
         exit(1);
     }
+
     start = clock();
     seam_finder->find(images_warped_f, corners, masks_warped);
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
@@ -202,46 +274,38 @@ void stitch(vector<string> img_names) {
 
     Mat img_warped, img_warped_s;
     Mat dilated_mask, seam_mask, mask, mask_warped;
-    //double compose_seam_aspect = 1;
+    bool has_updated_corners_sizes = false;
 
-    for (int img_idx = 0; img_idx < numImage; ++img_idx)
-    {
+    start = clock();
+    for (int img_idx = 0; img_idx < numImage; ++img_idx) {
         // Read image and resize it if necessary
-        full_img = imread(img_names[img_idx]);
+        startWarp = clock();
+        full_img = full_images[img_idx];
+        warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
 
-        // Update corners and sizes
-        for (int i = 0; i < numImage; ++i)
-        {
-            // Update corner and size
-            Size sz = full_img_sizes[i];
-            if (std::abs(compose_scale - 1) > 1e-1)
-            {
-                sz.width = cvRound(full_img_sizes[i].width * compose_scale);
-                sz.height = cvRound(full_img_sizes[i].height * compose_scale);
-            }
+        if (!has_updated_corners_sizes) {
+          // Update corners and sizes
+          for (int i = 0; i < numImage; ++i) {
+              // Update corner and size
+              Size sz = full_img_sizes[i];
 
-            Mat K, R;
-            calibrations[i].camera_matrix.convertTo(K, CV_32F);
-            calibrations[i].rectification.convertTo(R, CV_32F);
-            Rect roi = warper->warpRoi(sz, K, R);
-            corners[i] = roi.tl();
-            sizes[i] = roi.size();
+              Mat R;
+              rotationMatrix[i].convertTo(R, CV_32F);
+              Rect roi = warper->warpRoi(sz, K, R);
+              corners[i] = roi.tl();
+              sizes[i] = roi.size();
+          }
+          has_updated_corners_sizes = true;
         }
 
-        if (abs(compose_scale - 1) > 1e-1) {
-          resize(full_img, img, Size(), compose_scale, compose_scale, INTER_LINEAR_EXACT);
-        } else {
-          img = full_img;
-        }
+        img = full_img;
 
         full_img.release();
         Size img_size = img.size();
 
-        Mat K, R;
-        calibrations[img_idx].camera_matrix.convertTo(K, CV_32F);
-        calibrations[img_idx].rectification.convertTo(R, CV_32F);
+        Mat R;
+        rotationMatrix[img_idx].convertTo(R, CV_32F);
 
-        start = clock();
         // //Warping image based on precomputed spherical map
         // Rect image_roi = composedImageROI[img_idx];
         // img_warped.create(image_roi.height + 1, image_roi.width + 1, img.type());
@@ -253,13 +317,11 @@ void stitch(vector<string> img_names) {
         // Rect mask_roi = composedMaskROI[img_idx];
         // mask_warped.create(mask_roi.height + 1, mask_roi.width + 1, mask.type());
         // remap(mask, mask_warped, composedMaskeUXMap[img_idx], composedMaskUYMap[img_idx], INTER_NEAREST, BORDER_CONSTANT);
-
         warper->warp(img, K, R, INTER_NEAREST, BORDER_CONSTANT, img_warped);
 
         mask.create(img_size, CV_8U);
         mask.setTo(Scalar::all(255));
         warper->warp(mask, K, R, INTER_NEAREST, BORDER_CONSTANT, mask_warped);
-        warpTime += (clock() - start) / (double) CLOCKS_PER_SEC;
 
         // Compensate exposure
         compensator->apply(img_idx, corners[img_idx], img_warped, mask_warped);
@@ -283,15 +345,17 @@ void stitch(vector<string> img_names) {
             MultiBandBlender* mb = dynamic_cast<MultiBandBlender*>(blender.get());
             mb->setNumBands(static_cast<int>(ceil(log(blend_width)/log(2.)) - 1.));
 
+            start = clock();
             blender->prepare(corners, sizes);
+            duration += (clock() - start) / (double) CLOCKS_PER_SEC;
+            cout << "Preparing Blender: " << duration << endl;
         }
 
-        start = clock();
         // Blend the current image
         blender->feed(img_warped_s, mask_warped, corners[img_idx]);
         duration += (clock() - start) / (double) CLOCKS_PER_SEC;
     }
-    cout << "Feeding time: " << duration << "\n";
+    cout << "Loop time: " << duration << "\n";
 
     start = clock();
     Mat result, result_s, result_mask;
@@ -299,7 +363,7 @@ void stitch(vector<string> img_names) {
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Blending time: " << duration << "\n";
     cout << "Warping 2nd time: " << warpTime << endl;
-
+    
     result_s.convertTo(result, CV_8U);
     namedWindow("warped", WINDOW_NORMAL);
     resizeWindow("warped", 1024, 600);
@@ -308,18 +372,21 @@ void stitch(vector<string> img_names) {
 }
 
 int main(int argc, char** argv) {
-  getCalibrationDetails(numImage);
-  homography();
-  vector<string> images;
+  clock_t start;
+  double duration;
+  start = clock();
+  getCalibrationDetails();
+  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  cout << "Get Calibration Details time: " << duration << "\n";
+
+  vector<Mat> images;
 
   for (int i = numImage; i > 0; i--) {
     string filename = "test" + to_string(i) + ".png";
-    images.push_back(filename);
+    images.push_back(imread(filename));
   }
 
   precomp();
-  clock_t start;
-  double duration;
   start = clock();
   stitch(images);
   duration = (clock() - start) / (double) CLOCKS_PER_SEC;

@@ -12,15 +12,27 @@ class CalibrationDetails {
   public:
   Mat camera_matrix;
   Mat distortion;
-  Mat rectification;
-  Mat projection;
 };
 
-std::vector<CalibrationDetails> calibrations;
-vector<Mat> homographies(numImage);
+vector<Mat> rotationMatrix;
+Mat newCameraMatrix;
 
-void getCalibrationDetails(int num_cam) {
-  for (int i = num_cam; i > 0; i--) {
+void printVector(vector<Mat> vect);
+void findRotationMatrix();
+Mat findNewCameraMatrix();
+void getCalibrationDetails();
+vector<Mat> homography();
+
+void printVector(vector<Mat> vect) {
+  for (int i = 0; i < vect.size(); i++) {
+    cout << vect[i] << endl;
+  }
+}
+
+void getCalibrationDetails() {
+  std::vector<CalibrationDetails> calibrations;
+
+  for (int i = numImage; i > 0; i--) {
     CalibrationDetails cal;
     std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(i) + ".yaml";
     FileStorage fs(filename, FileStorage::READ);
@@ -32,34 +44,53 @@ void getCalibrationDetails(int num_cam) {
 
     fs["camera_matrix"] >> cal.camera_matrix;
     fs["distortion_coefficients"] >> cal.distortion;
-    fs["rectification_matrix"] >> cal.rectification;
-    fs["projection_matrix"] >> cal.projection;
     fs.release();
 
+    // rotationMatrix.push_back(cal.rectification);
     calibrations.push_back(cal);
   }
-}
 
-void affine() {
-  // for (int i = 1; i < numImage; i++) {
-  for (int i = numImage-1; i > 0; i--) {
-    Mat h;
-    string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/affine/A" +
-                      to_string(i) + to_string(i+1) + ".yaml";
-    FileStorage file(filename, FileStorage::READ);
+  // Find new camera matrix
+  Size image_size = Size(1920, 1080);
 
-    if (!file.isOpened()) {
-      cout << "File " + filename + " cannot be opened!";
-      exit(ERROR);
-    }
+  // for (int i = 0; i < numImage; i++) {
+  //   newCameraMatrix = getOptimalNewCameraMatrix(calibrations[i].camera_matrix, calibrations[i].distortion, image_size, 1);
+  //   cout << newCameraMatrix << endl;
+  // }
+  newCameraMatrix = calibrations[0].camera_matrix;
 
-    file["affine"] >> h;
-    file.release();
-    homographies[i-1] = h;
+  // Get existing homographies to find new camera matrix for all six cameras
+  vector<Mat> homographies = homography();
+  rotationMatrix.push_back(Mat_<double>::eye(3, 3));
+
+  for (int i = 0; i < numImage-1; i++) {
+    vector<Mat> rotations, translations, normals;
+    decomposeHomographyMat(homographies[i], newCameraMatrix, rotations, translations, normals);
+    rotationMatrix.push_back(rotationMatrix[i] * rotations[0]);
   }
 }
 
-void homography() {
+// void affine() {
+//   // for (int i = 1; i < numImage; i++) {
+//   for (int i = numImage-1; i > 0; i--) {
+//     Mat h;
+//     string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/affine/A" +
+//                       to_string(i) + to_string(i+1) + ".yaml";
+//     FileStorage file(filename, FileStorage::READ);
+//
+//     if (!file.isOpened()) {
+//       cout << "File " + filename + " cannot be opened!";
+//       exit(ERROR);
+//     }
+//
+//     file["affine"] >> h;
+//     file.release();
+//     homographies[i-1] = h;
+//   }
+// }
+
+vector<Mat> homography() {
+  vector<Mat> homographies(numImage);
   // for (int i = 1; i < numImage; i++) {
   for (int i = 1; i < numImage; i++) {
     Mat h;
@@ -76,4 +107,6 @@ void homography() {
     file.release();
     homographies[i-1] = h;
   }
+
+  return homographies;
 }

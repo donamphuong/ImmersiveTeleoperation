@@ -18,9 +18,9 @@ void save_frame(VideoCapture cap, std::vector<Mat>& images, int cam) {
   cap >> frame;
   //Check if the grabbed frame is actually full with some content
   if (!frame.empty()) {
-    Mat corrected;
+    Mat corrected = frame;
 
-    undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
+    // undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
     // images.push_back(corrected);
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
     pub.publish(msg);
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 
   image_transport::ImageTransport it(nh);
   int num_cam = atoi(argv[1]);
-  getCalibrationDetails(num_cam);
+  getCalibrationDetails();
 
   cv::namedWindow("view1");
   cv::startWindowThread();

@@ -176,7 +176,7 @@ void alignImages(Mat im1, Mat im2) {
 int main(int argc, char** argv) {
   cv::Mat im1, im2, im1Warped, im2Warped;
   homography();
-  getCalibrationDetails(numImage);
+  getCalibrationDetails();
   im1 = imread("test32.png");
   im2 = imread("test23.png");
   Ptr<WarperCreator> warperCreator = makePtr<cv::CylindricalWarper>();
