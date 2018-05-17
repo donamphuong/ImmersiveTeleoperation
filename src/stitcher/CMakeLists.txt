@@ -15,7 +15,9 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
 )
 
-find_package(CUDA REQUIRED)
+
+set(CUDA_TOOLKIT_ROOT_DIR
+/usr/local/cuda-9.1)
 
 find_package(OpenCV REQUIRED
 NO_MODULE
@@ -79,11 +81,3 @@ ${OpenCV_LIBS}
 ${catkin_LIBRARIES}
   )
 add_dependencies(image_testing stitcher_generate_messages_cpp)
-
-
-add_executable(image_projection src/image_projection.cpp)
-target_link_libraries(image_projection
-${OpenCV_LIBS}
-${catkin_LIBRARIES}
-  )
-add_dependencies(image_projection stitcher_generate_messages_cpp)

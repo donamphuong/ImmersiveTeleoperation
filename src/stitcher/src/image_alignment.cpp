@@ -179,6 +179,23 @@ int beforeStitch(vector<string> img_names) {
     }
 }
 
+void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy) {
+  clock_t start = clock();
+  double duration;
+  cuda::GpuMat inputGpu(src);
+  cuda::GpuMat outputGpu;
+  duration += (clock() - start) / (double) CLOCKS_PER_SEC;
+
+  cuda::resize(inputGpu, outputGpu, size, fx, fy, INTER_LINEAR);
+  outputGpu.download(dst);
+
+  start = clock();
+  inputGpu.release();
+  outputGpu.release();
+  duration += (clock() - start) / (double) CLOCKS_PER_SEC;
+  // cout << "resizing " << duration << endl;
+}
+
 void stitch(vector<Mat> full_images) {
     clock_t start, startWarp;
     double duration, warpTime;
@@ -279,29 +296,21 @@ void stitch(vector<Mat> full_images) {
     start = clock();
     for (int img_idx = 0; img_idx < numImage; ++img_idx) {
         // Read image and resize it if necessary
-        startWarp = clock();
-        full_img = full_images[img_idx];
-        warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
+        img = full_images[img_idx];
+        Size img_size = img.size();
 
         if (!has_updated_corners_sizes) {
           // Update corners and sizes
           for (int i = 0; i < numImage; ++i) {
               // Update corner and size
-              Size sz = full_img_sizes[i];
-
               Mat R;
               rotationMatrix[i].convertTo(R, CV_32F);
-              Rect roi = warper->warpRoi(sz, K, R);
+              Rect roi = warper->warpRoi(img_size, K, R);
               corners[i] = roi.tl();
               sizes[i] = roi.size();
           }
           has_updated_corners_sizes = true;
         }
-
-        img = full_img;
-
-        full_img.release();
-        Size img_size = img.size();
 
         Mat R;
         rotationMatrix[img_idx].convertTo(R, CV_32F);
@@ -333,12 +342,13 @@ void stitch(vector<Mat> full_images) {
 
         dilate(masks_warped[img_idx], dilated_mask, Mat());
         resize(dilated_mask, seam_mask, mask_warped.size(), 0, 0, INTER_LINEAR_EXACT);
+
         mask_warped = seam_mask & mask_warped;
 
-        if (!blender)
-        {
+        startWarp = clock();
+        if (!blender) {
             float blend_strength = 5;
-            blender = Blender::createDefault(Blender::MULTI_BAND, true);
+            blender = Blender::createDefault(Blender::MULTI_BAND, false);
             Size dst_sz = resultRoi(corners, sizes).size();
             float blend_width = sqrt(static_cast<float>(dst_sz.area())) * blend_strength / 100.f;
 
@@ -350,11 +360,12 @@ void stitch(vector<Mat> full_images) {
             duration += (clock() - start) / (double) CLOCKS_PER_SEC;
             cout << "Preparing Blender: " << duration << endl;
         }
+        warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
 
         // Blend the current image
         blender->feed(img_warped_s, mask_warped, corners[img_idx]);
-        duration += (clock() - start) / (double) CLOCKS_PER_SEC;
     }
+    duration += (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Loop time: " << duration << "\n";
 
     start = clock();
@@ -362,13 +373,13 @@ void stitch(vector<Mat> full_images) {
     blender->blend(result_s, result_mask);
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Blending time: " << duration << "\n";
-    cout << "Warping 2nd time: " << warpTime << endl;
-    
-    result_s.convertTo(result, CV_8U);
-    namedWindow("warped", WINDOW_NORMAL);
-    resizeWindow("warped", 1024, 600);
-    imshow ("warped", result);
-    waitKey();
+    cout << "Resizing time: " << warpTime << endl;
+
+    // result_s.convertTo(result, CV_8U);
+    // namedWindow("warped", WINDOW_NORMAL);
+    // resizeWindow("warped", 1024, 600);
+    // imshow ("warped", result);
+    // waitKey();
 }
 
 int main(int argc, char** argv) {
