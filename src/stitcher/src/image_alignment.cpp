@@ -52,8 +52,8 @@ void buildComposedMaps() {
 
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
-      newCameraMatrix.convertTo(K, CV_32F);
-      rotationMatrix[i].convertTo(R, CV_32F);
+      calibrations[i].camera_matrix.convertTo(K, CV_32F);
+      calibrations[i].rectification.convertTo(R, CV_32F);
 
       composedImageROI[i] = warper->buildMaps(image_size, K, R, composedImageUXMap[i], composedImageUYMap[i]);
       composedMaskROI[i] = warper->buildMaps(image_size, K, R, composedMaskeUXMap[i], composedMaskUYMap[i]);
@@ -73,8 +73,8 @@ void buildSphericalMaps() {
 
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
-      newCameraMatrix.convertTo(K, CV_32F);
-      rotationMatrix[i].convertTo(R, CV_32F);
+      calibrations[i].camera_matrix.convertTo(K, CV_32F);
+      calibrations[i].rectification.convertTo(R, CV_32F);
       float swa = (float)seam_work_aspect;
       K(0,0) *= swa; K(0,2) *= swa;
       K(1,1) *= swa; K(1,2) *= swa;
@@ -93,7 +93,7 @@ void precomp() {
   seam_work_aspect = seam_scale / work_scale;
 
   //TODO: Using constant K
-  warped_image_scale = newCameraMatrix.at<double>(0, 0);
+  warped_image_scale = calibrations[0].camera_matrix.at<double>(0, 0);
 
   buildSphericalMaps();
   // buildComposedMaps();
@@ -199,8 +199,6 @@ void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy) {
 void stitch(vector<Mat> full_images) {
     clock_t start, startWarp;
     double duration, warpTime;
-    Mat K;
-    newCameraMatrix.convertTo(K, CV_32F);
 
     Mat full_img, img;
     vector<Mat> images(numImage);
@@ -303,8 +301,9 @@ void stitch(vector<Mat> full_images) {
           // Update corners and sizes
           for (int i = 0; i < numImage; ++i) {
               // Update corner and size
-              Mat R;
-              rotationMatrix[i].convertTo(R, CV_32F);
+              Mat K, R;
+              calibrations[i].camera_matrix.convertTo(K, CV_32F);
+              calibrations[i].rectification.convertTo(R, CV_32F);
               Rect roi = warper->warpRoi(img_size, K, R);
               corners[i] = roi.tl();
               sizes[i] = roi.size();
@@ -312,8 +311,9 @@ void stitch(vector<Mat> full_images) {
           has_updated_corners_sizes = true;
         }
 
-        Mat R;
-        rotationMatrix[img_idx].convertTo(R, CV_32F);
+        Mat K, R;
+        calibrations[img_idx].camera_matrix.convertTo(K, CV_32F);
+        calibrations[img_idx].rectification.convertTo(R, CV_32F);
 
         // //Warping image based on precomputed spherical map
         // Rect image_roi = composedImageROI[img_idx];
@@ -375,11 +375,11 @@ void stitch(vector<Mat> full_images) {
     cout << "Blending time: " << duration << "\n";
     cout << "Resizing time: " << warpTime << endl;
 
-    // result_s.convertTo(result, CV_8U);
-    // namedWindow("warped", WINDOW_NORMAL);
-    // resizeWindow("warped", 1024, 600);
-    // imshow ("warped", result);
-    // waitKey();
+    result_s.convertTo(result, CV_8U);
+    namedWindow("warped", WINDOW_NORMAL);
+    resizeWindow("warped", 1024, 600);
+    imshow ("warped", result);
+    waitKey();
 }
 
 int main(int argc, char** argv) {

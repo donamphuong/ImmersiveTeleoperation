@@ -12,14 +12,12 @@ class CalibrationDetails {
   public:
   Mat camera_matrix;
   Mat distortion;
+  Mat rectification;
 };
 
-vector<Mat> rotationMatrix;
-Mat newCameraMatrix;
+std::vector<CalibrationDetails> calibrations;
 
 void printVector(vector<Mat> vect);
-void findRotationMatrix();
-Mat findNewCameraMatrix();
 void getCalibrationDetails();
 vector<Mat> homography();
 
@@ -30,7 +28,6 @@ void printVector(vector<Mat> vect) {
 }
 
 void getCalibrationDetails() {
-  std::vector<CalibrationDetails> calibrations;
 
   for (int i = numImage; i > 0; i--) {
     CalibrationDetails cal;
@@ -50,23 +47,14 @@ void getCalibrationDetails() {
     calibrations.push_back(cal);
   }
 
-  // Find new camera matrix
-  Size image_size = Size(1920, 1080);
-
-  // for (int i = 0; i < numImage; i++) {
-  //   newCameraMatrix = getOptimalNewCameraMatrix(calibrations[i].camera_matrix, calibrations[i].distortion, image_size, 1);
-  //   cout << newCameraMatrix << endl;
-  // }
-  newCameraMatrix = calibrations[0].camera_matrix;
-
   // Get existing homographies to find new camera matrix for all six cameras
   vector<Mat> homographies = homography();
-  rotationMatrix.push_back(Mat_<double>::eye(3, 3));
+  calibrations[0].rectification = Mat_<double>::eye(3, 3);
 
   for (int i = 0; i < numImage-1; i++) {
     vector<Mat> rotations, translations, normals;
-    decomposeHomographyMat(homographies[i], newCameraMatrix, rotations, translations, normals);
-    rotationMatrix.push_back(rotationMatrix[i] * rotations[0]);
+    decomposeHomographyMat(homographies[i], calibrations[i+1].camera_matrix, rotations, translations, normals);
+    calibrations[i+1].rectification = calibrations[i].rectification * rotations[0];
   }
 }
 
