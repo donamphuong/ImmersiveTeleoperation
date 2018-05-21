@@ -1,2 +1,0 @@
-stitcher
--DCATKIN_DEVEL_PREFIX=/home/donamphuong/ImmersiveTeleoperation/devel -DCMAKE_INSTALL_PREFIX=/home/donamphuong/ImmersiveTeleoperation/install -G Unix Makefiles

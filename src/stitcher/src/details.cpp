@@ -5,7 +5,7 @@
 using namespace std;
 using namespace cv;
 
-const int numImage = 3;
+const int numImage = 2;
 const int ERROR = -1;
 
 class CalibrationDetails {

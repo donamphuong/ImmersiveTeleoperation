@@ -1,3 +1,4 @@
-.catkin_workspace
-/home/donamphuong/ImmersiveTeleoperation/build/*
-/home/donamphuong/ImmersiveTeleoperation/devel/*
+build/*
+devel/*
+*.png
+*.jpg

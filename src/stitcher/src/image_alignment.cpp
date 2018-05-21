@@ -213,7 +213,7 @@ void stitch(vector<Mat> full_images) {
         if (full_img.empty())
         {
 
-            cout << "Image is empty" << endl;
+            cout << "Image does not exist" << endl;
             exit(-1);
         }
 
@@ -393,7 +393,7 @@ int main(int argc, char** argv) {
   vector<Mat> images;
 
   for (int i = numImage; i > 0; i--) {
-    string filename = "test" + to_string(i) + ".png";
+    string filename = "images/frame" + to_string(i) + ".png";
     images.push_back(imread(filename));
   }
 
