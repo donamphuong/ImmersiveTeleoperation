@@ -5,7 +5,7 @@
 using namespace std;
 using namespace cv;
 
-const int numImage = 2;
+int numImage = 6;
 const int ERROR = -1;
 
 class CalibrationDetails {
@@ -29,7 +29,7 @@ void printVector(vector<Mat> vect) {
 
 void getCalibrationDetails() {
 
-  for (int i = numImage; i > 0; i--) {
+  for (int i = 1; i <= numImage; i++) {
     CalibrationDetails cal;
     std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(i) + ".yaml";
     FileStorage fs(filename, FileStorage::READ);

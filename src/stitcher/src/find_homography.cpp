@@ -80,61 +80,8 @@ Mat homography2Images(Mat im1, Mat im2) {
   // imshow("matches", imMatches);
   // waitKey();
   // Find homography
-  Mat h = findHomography(points2, points1, RANSAC );
+  Mat h = findHomography(points1, points2, RANSAC );
   return h;
-}
-
-Mat affineTransform(Mat im1, Mat im2) {
-  int minHessain = 400;
-  Mat gray1, gray2;
-  cvtColor(im1, gray1, COLOR_BGR2GRAY);
-  cvtColor(im2, gray2, COLOR_BGR2GRAY);
-
-  // Copy image into GPU memory
-  cuda::GpuMat img1Gray(gray1);
-  cuda::GpuMat img2Gray(gray2);
-
-  // Variables to store keypoints and descriptors
-  cuda::GpuMat keypoints1, keypoints2;
-  cuda::GpuMat descriptors1, descriptors2;
-
-  // Detect ORB features and compute descriptors.
-  cuda::SURF_CUDA surf(minHessain);
-  surf(img1Gray, cuda::GpuMat(), keypoints1, descriptors1);
-  surf(img2Gray, cuda::GpuMat(), keypoints2, descriptors2);
-
-  // Match features.
-  vector<vector<DMatch> > matches;
-  Ptr<cuda::DescriptorMatcher> matcher = cuda::DescriptorMatcher::createBFMatcher();
-  matcher->knnMatch(descriptors1, descriptors2, matches, 2);
-
-  vector<KeyPoint> keypoints1_res, keypoints2_res;
-  surf.downloadKeypoints(keypoints1, keypoints1_res);
-  surf.downloadKeypoints(keypoints2, keypoints2_res);
-
-  vector<DMatch> goodMatches;
-  vector<Point2f> points1, points2;
-  for (int i = 0; i < min(keypoints1_res.size() - 1, matches.size()); i++) {
-    if (matches[i][0].distance < 0.45 * matches[i][1].distance &&
-        ((int) matches[i].size() <= 2 && (int) matches[i].size() > 0)) {
-        goodMatches.push_back(matches[i][0]);
-        points1.push_back(keypoints1_res[matches[i][0].queryIdx].pt);
-        points2.push_back(keypoints2_res[matches[i][0].trainIdx].pt);
-      }
-  }
-
-  surf.releaseMemory();
-  matcher.release();
-  img1Gray.release();
-  img2Gray.release();
-
-  // Mat imMatches;
-  // drawMatches(im1, keypoints1_res, im2, keypoints2_res, goodMatches, imMatches);
-  // imshow("matches", imMatches);
-  // waitKey();
-  // Find homography
-
-  return estimateRigidTransform(points1, points2, true);
 }
 
 
@@ -171,10 +118,16 @@ void alignImages(Mat im1, Mat im2) {
 
 int main(int argc, char** argv) {
   cv::Mat im1, im2, im1Warped, im2Warped;
-  homography();
+  // homography();
   getCalibrationDetails();
-  im1 = imread("images/frame2.png");
-  im2 = imread("images/frame1.png");
-alignImages(im1, im2);
+  im1 = imread("test43.png");
+  im2 = imread("test34.png");
+
+  Mat h = homography2Images(im1, im2);
+  FileStorage file("/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H43.yaml", FileStorage::WRITE);
+
+  file << "homography" << h;
+  file.release();
+
   return 0;
 }

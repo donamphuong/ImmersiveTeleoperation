@@ -6,42 +6,49 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/stitching.hpp>
 #include <string>
-#include "details.cpp"
+#include "stitch.cpp"
+// #include "details.cpp"
 
 using namespace cv;
 
 image_transport::Publisher pub;
 
-//Show contents of cameras after calibrations
-void save_frame(VideoCapture cap, std::vector<Mat>& images, int cam) {
-  Mat frame;
-  cap >> frame;
-  //Check if the grabbed frame is actually full with some content
-  if (!frame.empty()) {
-    Mat corrected = frame;
+int test();
+int run();
+void save_frame(VideoCapture, std::vector<Mat>&, int);
 
-    // undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
-    // images.push_back(corrected);
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
-    pub.publish(msg);
+int test() {
+  clock_t start;
+  double duration;
+  vector<Mat> images;
 
-    imshow("view" + to_string(cam+1), corrected);
-    cv::waitKey(1);
+  for (int i = numImage; i > 0; i--) {
+    string filename = "test" + to_string(i) + ".png";
+    Mat im = imread(filename);
+    if (im.empty()) {
+      cout << "File " << filename << " does not exist" << endl;
+      return ERROR;
+    }
+    images.push_back(im);
   }
+
+  precomp();
+  start = clock();
+  Mat stitched = stitch(images);
+  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  cout << "printf: " << duration << "\n";
+
+  namedWindow("stitched", WINDOW_NORMAL);
+  resizeWindow("stitched", 1024, 600);
+  imshow ("stitched", stitched);
+  waitKey();
+
+  return 0;
 }
 
-/*
-This is a camera node that takes care of the communication with the camera
-*/
-int main(int argc, char** argv) {
-  if (argc <= 1) return 1;
-
-  ros::init(argc, argv, "image_publisher");
+int run() {
   ros::NodeHandle nh;
-
   image_transport::ImageTransport it(nh);
-  int num_cam = atoi(argv[1]);
-  getCalibrationDetails();
 
   cv::namedWindow("view1");
   cv::startWindowThread();
@@ -53,10 +60,10 @@ int main(int argc, char** argv) {
   //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
   //This will buffer up to 1 message before beginning to throw away old ones
   pub = it.advertise("camera", 1);
-  cv::VideoCapture cap[num_cam];
+  cv::VideoCapture cap[numImage];
 
-  for (int video_source = 1; video_source < num_cam + 1; video_source++) {
-    cap[video_source-1].open(video_source-1);
+  for (int video_source = 1; video_source < numImage + 1; video_source++) {
+    cap[video_source-1].open(video_source);
 
     //Check if video device can be opened with the given index
     if (!cap[video_source-1].isOpened()) {
@@ -67,25 +74,56 @@ int main(int argc, char** argv) {
 
   while (nh.ok()) {
     std::vector<Mat> images;
-    for (int i = 0; i < num_cam; i++) {
+    for (int i = 0; i < numImage; i++) {
       save_frame(cap[i], images, i);
     }
 
-    // Mat pano;
-    // //Converting ROS image message to an OpenCV image with BGR pixel encoding, then show it in a display window
-    // Ptr<Stitcher> stitcher = Stitcher::create(Stitcher::PANORAMA, true);
-    // Stitcher::Status status = stitcher->stitch(images, pano);
-    //
-    // if (status != Stitcher::OK) {
-    //   std::cout << "Can't stitch images, error code = " << int(status) << std::endl;
-    //   return 1;
-    // }
+    precomp();
+    clock_t start = clock();
+    Mat stitched = stitch(images);
+    cout << "Stitching Time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
-    // imshow("stitched images", pano);
+    namedWindow("stitched", WINDOW_NORMAL);
+    resizeWindow("stitched", 1024, 600);
+    imshow ("stitched", stitched);
+    waitKey();
 
-    // pub.publish(msg);
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
+    pub.publish(msg);
 
     ros::spinOnce();
     loop_rate.sleep();
   }
+}
+
+//Show contents of cameras after calibrations
+void save_frame(VideoCapture cap, std::vector<Mat>& images, int cam) {
+  Mat frame;
+  cap >> frame;
+  //Check if the grabbed frame is actually full with some content
+  if (!frame.empty()) {
+    Mat corrected = frame;
+
+    // undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
+    // images.push_back(corrected);
+    // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
+    // pub.publish(msg);
+
+    imshow("view" + to_string(cam+1), corrected);
+    cv::waitKey(1);
+  }
+}
+
+/*
+This is a camera node that takes care of the communication with the camera
+*/
+int main(int argc, char** argv) {
+  if (argc <= 1) return 1;
+  ros::init(argc, argv, "image_publisher");
+  numImage = atoi(argv[1]);
+
+  getCalibrationDetails();
+
+  return test();
+  return run();
 }
