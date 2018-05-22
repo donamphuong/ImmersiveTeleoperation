@@ -120,11 +120,11 @@ int main(int argc, char** argv) {
   cv::Mat im1, im2, im1Warped, im2Warped;
   // homography();
   getCalibrationDetails();
-  im1 = imread("test43.png");
-  im2 = imread("test34.png");
+  im1 = imread("images/frame1.png");
+  im2 = imread("images/frame2.png");
 
   Mat h = homography2Images(im1, im2);
-  FileStorage file("/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H43.yaml", FileStorage::WRITE);
+  FileStorage file("/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H12.yaml", FileStorage::WRITE);
 
   file << "homography" << h;
   file.release();
