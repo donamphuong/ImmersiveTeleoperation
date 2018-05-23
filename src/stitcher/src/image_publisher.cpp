@@ -84,6 +84,7 @@ int run() {
     double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Stitching Time: " << duration << endl;
 
+    images.clear();
     imshow ("stitched", stitched);
     waitKey(1);
 
@@ -101,9 +102,9 @@ void save_frame(VideoCapture cap, std::vector<Mat>& images, int cam) {
   cap >> frame;
   //Check if the grabbed frame is actually full with some content
   if (!frame.empty()) {
-    Mat corrected = frame;
+    Mat corrected;
 
-    // undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
+    undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
     images.push_back(corrected);
     // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
     // pub.publish(msg);

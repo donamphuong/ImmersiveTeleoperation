@@ -109,23 +109,23 @@ void precomp() {
 }
 
 void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy) {
-  clock_t start = clock();
+  clock_t start = getTickCount();
   double duration;
   cuda::GpuMat inputGpu(src);
   cuda::GpuMat outputGpu;
-  duration += (clock() - start) / (double) CLOCKS_PER_SEC;
+  duration += (getTickCount() - start) / getTickFrequency();
 
   cuda::resize(inputGpu, outputGpu, size, fx, fy, INTER_LINEAR);
   outputGpu.download(dst);
 
-  start = clock();
+  start = getTickCount();
   inputGpu.release();
   outputGpu.release();
-  duration += (clock() - start) / (double) CLOCKS_PER_SEC;
+  duration += (getTickCount() - start) / getTickFrequency();
   // cout << "resizing " << duration << endl;
 }
 
-Mat stitch(vector<Mat> full_images) {
+Mat stitch(const vector<Mat> full_images) {
   cout << endl << "START" << endl;
   clock_t start, startWarp;
   double duration, warpTime;
@@ -134,7 +134,7 @@ Mat stitch(vector<Mat> full_images) {
   vector<Mat> images(numImage);
   vector<Size> full_img_sizes(numImage);
 
-  start = clock();
+  start = getTickCount();
   for (int i = 0; i < numImage; ++i) {
       full_img = full_images[i];
       full_img_sizes[i] = full_img.size();
@@ -144,7 +144,7 @@ Mat stitch(vector<Mat> full_images) {
 
       images[i] = img.clone();
   }
-  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  duration = (getTickCount() - start) / getTickFrequency();
   cout << "Reading images " << duration << endl;
 
   full_img.release();
@@ -154,7 +154,7 @@ Mat stitch(vector<Mat> full_images) {
   vector<Size> sizes(numImage);
   vector<Point> corners(numImage);
 
-  start = clock();
+  start = getTickCount();
   //Warping image based on precomputed spherical map
   for (int i = 0; i < numImage; ++i) {
     Rect image_roi = sphericalImageROI[i];
@@ -165,7 +165,7 @@ Mat stitch(vector<Mat> full_images) {
     sizes[i] = images_warped[i].size();
   }
 
-  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  duration = (getTickCount() - start) / getTickFrequency();
   cout << "Warping time: " << duration << "\n";
 
   vector<UMat> images_warped_f(numImage);
@@ -173,14 +173,14 @@ Mat stitch(vector<Mat> full_images) {
     images_warped[i].convertTo(images_warped_f[i], CV_32F);
   }
 
-  start = clock();
+  start = getTickCount();
   compensator->feed(corners, images_warped, masks_warped);
-  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  duration = (getTickCount() - start) / getTickFrequency();
   cout << "Exposure Compensating Time: " << duration << endl;
 
-  start = clock();
+  start = getTickCount();
   seam_finder->find(images_warped_f, corners, masks_warped);
-  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  duration = (getTickCount() - start) / getTickFrequency();
   cout << "Finding seam time: " << duration << "\n";
 
   // Release unused memory
@@ -191,7 +191,7 @@ Mat stitch(vector<Mat> full_images) {
   Mat img_warped, img_warped_s;
   Mat dilated_mask, seam_mask, mask, mask_warped;
 
-  start = clock();
+  start = getTickCount();
   for (int img_idx = 0; img_idx < numImage; img_idx++) {
       // Read image and resize it if necessary
       img = full_images[img_idx];
@@ -229,24 +229,24 @@ Mat stitch(vector<Mat> full_images) {
 
       mask_warped = seam_mask & mask_warped;
 
-      startWarp = clock();
+      startWarp = getTickCount();
       //build another canvas when the first image in the panorama is inputted
       if (img_idx == 0) {
           blender->prepare(composedCorners, updatedSizes);
       }
-      warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
+      warpTime += (getTickCount() - startWarp) / getTickFrequency();
 
       // Blend the current image
       blender->feed(img_warped_s, mask_warped, composedCorners[img_idx]);
   }
 
-  duration += (clock() - start) / (double) CLOCKS_PER_SEC;
+  duration += (getTickCount() - start) / getTickFrequency();
   cout << "Loop time: " << duration << "\n";
 
-  start = clock();
+  start = getTickCount();
   Mat result, result_s, result_mask;
   blender->blend(result_s, result_mask);
-  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  duration = (getTickCount() - start) / getTickFrequency();
   cout << "Blending time: " << duration << "\n";
   cout << "Resizing time: " << warpTime << endl;
 
