@@ -5,8 +5,8 @@
 using namespace std;
 using namespace cv;
 
-int numImage = 2;
-const int ERROR = -1;
+#define numImage 2
+#define ERROR -1
 
 class CalibrationDetails {
   public:

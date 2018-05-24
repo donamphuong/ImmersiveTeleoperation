@@ -80,7 +80,7 @@ Mat homography2Images(Mat im1, Mat im2) {
   // imshow("matches", imMatches);
   // waitKey();
   // Find homography
-  Mat h = findHomography(points1, points2, RANSAC );
+  Mat h = findHomography(points2, points1, RANSAC );
   return h;
 }
 
@@ -104,11 +104,8 @@ void alignImages(Mat im1, Mat im2) {
   Mat roiImgLeft = im1(Rect(0, 0, im1.cols, im2.rows));
   Mat roiImgRight = im2Warped(Rect(im1.cols, 0, im2.cols, im2.rows));
 
-  // roiImgLeft.copyTo(imLeftArea);
-  // roiImgRight.copyTo(imRightArea);
-  // duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-  //
-  // std::cout<<"printf: "<< duration <<'\n';
+  roiImgLeft.copyTo(imLeftArea);
+  roiImgRight.copyTo(imRightArea);
 
   namedWindow("warped", WINDOW_NORMAL);
   resizeWindow("warped", 1024, 600);
@@ -116,18 +113,23 @@ void alignImages(Mat im1, Mat im2) {
   waitKey();
 }
 
-int main(int argc, char** argv) {
-  cv::Mat im1, im2, im1Warped, im2Warped;
-  // homography();
-  getCalibrationDetails();
-  im1 = imread("images/frame1.png");
-  im2 = imread("images/frame2.png");
+void getHomographyBetweenCameras(int firstCamId, int secondCamId) {
+  Mat im1 = imread("test" + to_string(firstCamId) + to_string(secondCamId) + ".png");
+  Mat im2 = imread("test" + to_string(secondCamId) + to_string(firstCamId) + ".png");
 
   Mat h = homography2Images(im1, im2);
-  FileStorage file("/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H12.yaml", FileStorage::WRITE);
+  FileStorage file("/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H" + to_string(secondCamId) + to_string(firstCamId) + ".yaml", FileStorage::WRITE);
 
   file << "homography" << h;
   file.release();
+}
 
+int main(int argc, char** argv) {
+  getCalibrationDetails();
+  // getHomographyBetweenCameras(1, 2);
+  // getHomographyBetweenCameras(2, 3);
+  // getHomographyBetweenCameras(3, 4);
+
+  alignImages(imread("test12.png"), imread("test21.png"));
   return 0;
 }

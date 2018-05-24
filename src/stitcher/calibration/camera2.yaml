@@ -17,7 +17,7 @@ rectification_matrix: !!opencv-matrix
   rows: 3
   cols: 3
   dt: d
-  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+  data: [0.5, 0, 0.86602540378, 0, 1, 0, -0.86602540378, 0, 0.5]
 projection_matrix: !!opencv-matrix
   rows: 3
   cols: 4

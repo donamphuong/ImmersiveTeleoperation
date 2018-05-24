@@ -87,7 +87,7 @@ void precomp() {
   warper_creator = makePtr<cv::SphericalWarperGpu>();
   if (!warper_creator) {
       cout << "Can't create cylindrical warper" << endl;
-      exit(1);
+      exit(ERROR);
   }
   warper = warper_creator->create(static_cast<float>(warped_image_scale * seam_work_aspect));
 
@@ -98,18 +98,18 @@ void precomp() {
   seam_finder = makePtr<detail::GraphCutSeamFinder>(GraphCutSeamFinderBase::COST_COLOR_GRAD);
   if (!seam_finder) {
       cout << "Can't create graph cut seam finder" << endl;
-      exit(1);
+      exit(ERROR);
   }
+
+  //Initialise image blender
   initBlender();
 
   buildSphericalMaps();
   // buildComposedMaps();
-
-
 }
 
 void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy) {
-  clock_t start = getTickCount();
+  int64 start = getTickCount();
   double duration;
   cuda::GpuMat inputGpu(src);
   cuda::GpuMat outputGpu;
@@ -125,16 +125,21 @@ void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy) {
   // cout << "resizing " << duration << endl;
 }
 
-Mat stitch(const vector<Mat> full_images) {
-  cout << endl << "START" << endl;
-  clock_t start, startWarp;
-  double duration, warpTime;
+Mat stitch(const vector<Mat> full_images, Mat &result) {
+  #ifdef DEBUG
+    cout << endl << "START" << endl;
+    int64 start, startWarp;
+    double duration, warpTime;
+  #endif
 
   Mat full_img, img;
   vector<Mat> images(numImage);
   vector<Size> full_img_sizes(numImage);
 
-  start = getTickCount();
+  #ifdef DEBUG
+    start = getTickCount();
+  #endif
+
   for (int i = 0; i < numImage; ++i) {
       full_img = full_images[i];
       full_img_sizes[i] = full_img.size();
@@ -144,8 +149,11 @@ Mat stitch(const vector<Mat> full_images) {
 
       images[i] = img.clone();
   }
-  duration = (getTickCount() - start) / getTickFrequency();
-  cout << "Reading images " << duration << endl;
+
+  #ifdef DEBUG
+    duration = (getTickCount() - start) / getTickFrequency();
+    cout << "Reading images " << duration << endl;
+  #endif
 
   full_img.release();
   img.release();
@@ -154,7 +162,9 @@ Mat stitch(const vector<Mat> full_images) {
   vector<Size> sizes(numImage);
   vector<Point> corners(numImage);
 
-  start = getTickCount();
+  #ifdef DEBUG
+    start = getTickCount();
+  #endif
   //Warping image based on precomputed spherical map
   for (int i = 0; i < numImage; ++i) {
     Rect image_roi = sphericalImageROI[i];
@@ -164,34 +174,61 @@ Mat stitch(const vector<Mat> full_images) {
     corners[i] = image_roi.tl();
     sizes[i] = images_warped[i].size();
   }
-
-  duration = (getTickCount() - start) / getTickFrequency();
-  cout << "Warping time: " << duration << "\n";
+  #ifdef DEBUG
+    duration = (getTickCount() - start) / getTickFrequency();
+    cout << "Warping time: " << duration << "\n";
+  #endif
 
   vector<UMat> images_warped_f(numImage);
   for (int i = 0; i < numImage; ++i) {
     images_warped[i].convertTo(images_warped_f[i], CV_32F);
   }
 
-  start = getTickCount();
-  compensator->feed(corners, images_warped, masks_warped);
-  duration = (getTickCount() - start) / getTickFrequency();
-  cout << "Exposure Compensating Time: " << duration << endl;
+  #ifdef DEBUG
+    start = getTickCount();
+  #endif
 
-  start = getTickCount();
-  seam_finder->find(images_warped_f, corners, masks_warped);
-  duration = (getTickCount() - start) / getTickFrequency();
-  cout << "Finding seam time: " << duration << "\n";
+    compensator->feed(corners, images_warped, masks_warped);
+
+  #ifdef DEBUG
+    duration = (getTickCount() - start) / getTickFrequency();
+    cout << "Exposure Compensating Time: " << duration << endl;
+  #endif
+
+  #ifdef DEBUG
+    start = getTickCount();
+  #endif
+
+    seam_finder->find(images_warped_f, corners, masks_warped);
+
+  #ifdef DEBUG
+    duration = (getTickCount() - start) / getTickFrequency();
+    cout << "Finding seam time: " << duration << "\n";
+  #endif
+
+  #ifdef DEBUG
+    start = getTickCount();
+  #endif
+
+  #ifdef DEBUG
+    duration = (getTickCount() - start) / getTickFrequency();
+    cout << "Conversion time: " << duration << endl;
+  #endif
 
   // Release unused memory
   images.clear();
   images_warped.clear();
   images_warped_f.clear();
+  corners.clear();
+  sizes.clear();
 
   Mat img_warped, img_warped_s;
   Mat dilated_mask, seam_mask, mask, mask_warped;
 
-  start = getTickCount();
+  #ifdef DEBUG
+    start = getTickCount();
+  #endif
+
   for (int img_idx = 0; img_idx < numImage; img_idx++) {
       // Read image and resize it if necessary
       img = full_images[img_idx];
@@ -210,11 +247,19 @@ Mat stitch(const vector<Mat> full_images) {
       // Rect mask_roi = composedMaskROI[img_idx];
       // mask_warped.create(mask_roi.height + 1, mask_roi.width + 1, mask.type());
       // remap(mask, mask_warped, composedMaskeUXMap[img_idx], composedMaskUYMap[img_idx], INTER_NEAREST, BORDER_CONSTANT);
+      #ifdef DEBUG
+        startWarp = getTickCount();
+      #endif
+
       warper->warp(img, K, R, INTER_NEAREST, BORDER_CONSTANT, img_warped);
 
       mask.create(image_size, CV_8U);
       mask.setTo(Scalar::all(255));
       warper->warp(mask, K, R, INTER_NEAREST, BORDER_CONSTANT, mask_warped);
+
+      #ifdef DEBUG
+        warpTime += (getTickCount() - startWarp) / getTickFrequency();
+      #endif
 
       // Compensate exposure
       compensator->apply(img_idx, composedCorners[img_idx], img_warped, mask_warped);
@@ -229,27 +274,39 @@ Mat stitch(const vector<Mat> full_images) {
 
       mask_warped = seam_mask & mask_warped;
 
-      startWarp = getTickCount();
       //build another canvas when the first image in the panorama is inputted
       if (img_idx == 0) {
           blender->prepare(composedCorners, updatedSizes);
       }
-      warpTime += (getTickCount() - startWarp) / getTickFrequency();
 
       // Blend the current image
       blender->feed(img_warped_s, mask_warped, composedCorners[img_idx]);
   }
 
-  duration += (getTickCount() - start) / getTickFrequency();
-  cout << "Loop time: " << duration << "\n";
+  img_warped.release();
+  img_warped_s.release();
+  dilated_mask.release();
+  seam_mask.release();
+  mask.release();
+  mask_warped.release();
 
-  start = getTickCount();
-  Mat result, result_s, result_mask;
+  #ifdef DEBUG
+    duration = (getTickCount() - start) / getTickFrequency();
+    cout << "Loop time: " << duration << "\n";
+  #endif
+
+  #ifdef DEBUG
+    start = getTickCount();
+  #endif
+
+  Mat result_s, result_mask;
   blender->blend(result_s, result_mask);
-  duration = (getTickCount() - start) / getTickFrequency();
-  cout << "Blending time: " << duration << "\n";
-  cout << "Resizing time: " << warpTime << endl;
+
+  #ifdef DEBUG
+    duration = (getTickCount() - start) / getTickFrequency();
+    cout << "Blending time: " << duration << "\n";
+    cout << "Warping 2nd time: " << warpTime << endl;
+  #endif
 
   result_s.convertTo(result, CV_8U);
-  return result;
 }

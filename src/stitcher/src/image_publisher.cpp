@@ -18,11 +18,11 @@ int run();
 void save_frame(VideoCapture, std::vector<Mat>&, int);
 
 int test() {
-  clock_t start;
+  int64 start;
   double duration;
   vector<Mat> images;
 
-  for (int i = numImage; i > 0; i--) {
+  for (int i = 1; i < numImage + 1; i++) {
     string filename = "test" + to_string(i) + ".png";
     Mat im = imread(filename);
     if (im.empty()) {
@@ -33,9 +33,12 @@ int test() {
   }
 
   precomp();
-  start = clock();
-  Mat stitched = stitch(images);
-  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+  start = getTickCount();
+  Mat stitched;
+  stitch(images, stitched);
+  cout << "hello" << endl;
+
+  duration = (getTickCount() - start) / getTickFrequency();
   cout << "printf: " << duration << "\n";
 
   namedWindow("stitched", WINDOW_NORMAL);
@@ -79,9 +82,10 @@ int run() {
       save_frame(cap[i], images, i);
     }
 
-    clock_t start = clock();
-    Mat stitched = stitch(images);
-    double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    int64 start = getTickCount();
+    Mat stitched;
+    stitch(images, stitched);
+    double duration = (getTickCount() - start) / getTickFrequency();
     cout << "Stitching Time: " << duration << endl;
 
     images.clear();
@@ -121,6 +125,6 @@ int main(int argc, char** argv) {
 
   getCalibrationDetails();
 
-  // return test();
+  return test();
   return run();
 }

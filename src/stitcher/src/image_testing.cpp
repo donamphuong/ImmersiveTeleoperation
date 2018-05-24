@@ -64,34 +64,4 @@ void turnOnVideos() {
 // }
 
 int main(int argc, char** argv) {
-  numImage = 1;
-  VideoCapture cap[numImage];
-// cout<<cv::getBuildInformation()<<endl;
-  for (int i = 0; i < numImage; i++) {
-    // string gst = "v4l2src device=/dev/video0 ! video/x-raw, format=BGR, width=640, height=480, framerate=120/1 ! videoconvert ! appsink";
-    cap[i].open(i);
-
-    if (!cap[i].isOpened()) {
-      cout << "Cannot open device " << i << endl;
-      exit(ERROR);
-    }
-
-    cap[i].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
-    cap[i].set(CAP_PROP_FRAME_WIDTH,1920);
-    cap[i].set(CAP_PROP_FRAME_HEIGHT,1080);
-    cap[i].set(CAP_PROP_AUTOFOCUS,true);
-    cap[i].set(CAP_PROP_FPS,30);
-  }
-
-
-
-  Mat frame;
-  while (true) {
-
-    cap[0].read(frame);
-    imshow("view", frame);
-    if (waitKey(30) == 27) {
-      return ERROR;
-    }
-  }
 }

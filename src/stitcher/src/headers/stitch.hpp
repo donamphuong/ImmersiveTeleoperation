@@ -8,6 +8,8 @@
 #include <opencv2/opencv.hpp>
 #include "../details.cpp"
 
+// #define DEBUG
+
 using namespace std;
 using namespace cv;
 using namespace cv::detail;
@@ -40,4 +42,4 @@ void buildComposedMaps();
 void buildSphericalMaps();
 void precomp();
 void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy);
-Mat stitch(vector<Mat> full_images);
+Mat stitch(const vector<Mat> full_images, Mat &result);
