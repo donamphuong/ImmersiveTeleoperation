@@ -7,13 +7,16 @@
 #include <opencv2/stitching.hpp>
 #include <string>
 #include "stitch.cpp"
-// #include "details.cpp"
 
 using namespace cv;
+
+vector<UMat> undistortMap1(numImage);
+vector<UMat> undistortMap2(numImage);
 
 image_transport::Publisher pub;
 
 int test();
+void getUndistortMap();
 int run();
 void save_frame(VideoCapture, std::vector<Mat>&, int);
 
@@ -36,7 +39,6 @@ int test() {
   start = getTickCount();
   Mat stitched;
   stitch(images, stitched);
-  cout << "hello" << endl;
 
   duration = (getTickCount() - start) / getTickFrequency();
   cout << "printf: " << duration << "\n";
@@ -47,6 +49,15 @@ int test() {
   waitKey();
 
   return 0;
+}
+
+void getUndistortMap() {
+  Mat I = Mat_<double>::eye(3,3);
+
+  for (int cam = 0; cam < numImage; cam++) {
+    CalibrationDetails cal = calibrations[cam];
+    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, I, Mat(), image_size, undistortMap1[cam].type(), undistortMap1[cam], undistortMap2[cam]);
+  }
 }
 
 int run() {
@@ -77,15 +88,18 @@ int run() {
   precomp();
 
   while (nh.ok()) {
+    int64 start = getTickCount();
+    int64 startStitch = getTickCount();
     std::vector<Mat> images;
     for (int i = 0; i < numImage; i++) {
       save_frame(cap[i], images, i);
     }
+    cout << "Undistorting: " << (getTickCount() - start) / getTickFrequency() << endl;
 
-    int64 start = getTickCount();
+    startStitch = getTickCount();
     Mat stitched;
     stitch(images, stitched);
-    double duration = (getTickCount() - start) / getTickFrequency();
+    double duration = (getTickCount() - startStitch) / getTickFrequency();
     cout << "Stitching Time: " << duration << endl;
 
     images.clear();
@@ -95,6 +109,7 @@ int run() {
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
     pub.publish(msg);
 
+    cout << "Process time before publishing " << (getTickCount() - start) / getTickFrequency() << endl;
     ros::spinOnce();
     loop_rate.sleep();
   }
@@ -103,12 +118,23 @@ int run() {
 //Show contents of cameras after calibrations
 void save_frame(VideoCapture cap, std::vector<Mat>& images, int cam) {
   Mat frame;
+  int64 start = getTickCount();
   cap >> frame;
+  cout << "saving time: " << (getTickCount() - start) / getTickFrequency() << endl;
   //Check if the grabbed frame is actually full with some content
   if (!frame.empty()) {
     Mat corrected;
 
-    undistort(frame, corrected, calibrations[cam].camera_matrix, calibrations[cam].distortion);
+    #ifdef DEBUG
+      int64 start = getTickCount();
+    #endif
+
+    remap(frame, corrected, undistortMap1[cam], undistortMap2[cam], INTER_LINEAR, BORDER_CONSTANT);
+
+    #ifdef DEBUG
+      cout << "Undistorting: " << (start - getTickCount()) / getTickFrequency() << endl;
+    #endif
+
     images.push_back(corrected);
     // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
     // pub.publish(msg);
@@ -124,7 +150,8 @@ int main(int argc, char** argv) {
   // numImage = atoi(argv[1]);
 
   getCalibrationDetails();
+  getUndistortMap();
 
-  return test();
+  // return test();
   return run();
 }

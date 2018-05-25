@@ -75,24 +75,22 @@ Mat homography2Images(Mat im1, Mat im2) {
   img1Gray.release();
   img2Gray.release();
 
-  // Mat imMatches;
-  // drawMatches(im1, keypoints1_res, im2, keypoints2_res, goodMatches, imMatches);
-  // imshow("matches", imMatches);
-  // waitKey();
+  Mat imMatches;
+  drawMatches(im1, keypoints1_res, im2, keypoints2_res, goodMatches, imMatches);
+  imshow("matches", imMatches);
+  waitKey();
   // Find homography
   Mat h = findHomography(points2, points1, RANSAC );
   return h;
 }
 
-
-void alignImages(Mat im1, Mat im2) {
+void alignImg(Mat im1, Mat im2, Mat h) {
   std::clock_t start;
 
   double duration;
 
   start = std::clock();
 
-  Mat h = homography2Images(im1, im2);
   Mat im2Warped;
   warpPerspective(im2, im2Warped, h, Size(im2.cols * 3, im2.rows));
   Mat aligned(im1.rows, 2 * im1.cols, im1.type());
@@ -113,6 +111,12 @@ void alignImages(Mat im1, Mat im2) {
   waitKey();
 }
 
+void alignImages(Mat im1, Mat im2) {
+  Mat h = homography2Images(im1, im2);
+  cout << h << endl;
+  alignImg(im1, im2, h);
+}
+
 void getHomographyBetweenCameras(int firstCamId, int secondCamId) {
   Mat im1 = imread("test" + to_string(firstCamId) + to_string(secondCamId) + ".png");
   Mat im2 = imread("test" + to_string(secondCamId) + to_string(firstCamId) + ".png");
@@ -130,6 +134,10 @@ int main(int argc, char** argv) {
   // getHomographyBetweenCameras(2, 3);
   // getHomographyBetweenCameras(3, 4);
 
-  alignImages(imread("test12.png"), imread("test21.png"));
+  // Mat h = homography2Images(imread("test12.png"), imread("test21.png"));
+  // alignImg(imread("t2.png"), imread("t1.png"), h);
+
+  homography2Images(imread("test34.png"), imread("test43.png"));
+  // alignImages(imread("t2.png"), imread("t1.png"));
   return 0;
 }

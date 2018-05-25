@@ -108,23 +108,6 @@ void precomp() {
   // buildComposedMaps();
 }
 
-void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy) {
-  int64 start = getTickCount();
-  double duration;
-  cuda::GpuMat inputGpu(src);
-  cuda::GpuMat outputGpu;
-  duration += (getTickCount() - start) / getTickFrequency();
-
-  cuda::resize(inputGpu, outputGpu, size, fx, fy, INTER_LINEAR);
-  outputGpu.download(dst);
-
-  start = getTickCount();
-  inputGpu.release();
-  outputGpu.release();
-  duration += (getTickCount() - start) / getTickFrequency();
-  // cout << "resizing " << duration << endl;
-}
-
 Mat stitch(const vector<Mat> full_images, Mat &result) {
   #ifdef DEBUG
     cout << endl << "START" << endl;

@@ -33,7 +33,6 @@ void getCalibrationDetails() {
 
   for (int i = 1; i < numImage; i++) {
     calibrations[i].camera_matrix = calibrations[0].camera_matrix;
-    calibrations[i].distortion = calibrations[0].distortion;
   }
 
   for (int i = 0; i < numImage-1; i++) {
@@ -44,9 +43,9 @@ void getCalibrationDetails() {
 }
 
 vector<Mat> homography() {
-  vector<Mat> homographies(numImage);
+  vector<Mat> homographies(numImage-1);
   // for (int i = 1; i < numImage; i++) {
-  for (int i = 1; i < numImage; i++) {
+  for (int i = startCamera; i < numImage+startCamera-1; i++) {
     Mat h;
     string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H" +
                       to_string(i+1) + to_string(i) + ".yaml";
@@ -59,7 +58,7 @@ vector<Mat> homography() {
 
     file["homography"] >> h;
     file.release();
-    homographies[i-1] = h;
+    homographies[i-startCamera] = h;
   }
 
   return homographies;

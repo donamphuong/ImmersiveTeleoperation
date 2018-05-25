@@ -5,7 +5,8 @@
 using namespace std;
 using namespace cv;
 
-#define numImage 2
+#define startCamera 4
+#define numImage 3
 #define ERROR -1
 
 class CalibrationDetails {
