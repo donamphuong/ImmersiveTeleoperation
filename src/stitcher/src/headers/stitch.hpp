@@ -7,8 +7,10 @@
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
 #include "../details.cpp"
+#include <tbb/tbb.h>
+#include <tbb/task_group.h>
 
-// #define DEBUG
+#define DEBUG
 
 using namespace std;
 using namespace cv;
@@ -26,6 +28,13 @@ Size image_size = Size(1920, 1080);
 vector<UMat> sphericalImageUXMap(numImage);
 vector<UMat> sphericalImageUYMap(numImage);
 vector<Rect> sphericalImageROI(numImage);
+
+vector<UMat> composedImageUXMap(numImage);
+vector<UMat> composedImageUYMap(numImage);
+vector<Rect> composedImageROI(numImage);
+vector<UMat> composedMaskUXMap(numImage);
+vector<UMat> composedMaskUYMap(numImage);
+vector<Rect> composedMaskROI(numImage);
 
 vector<Point> composedCorners(numImage);
 vector<Size> updatedSizes(numImage);

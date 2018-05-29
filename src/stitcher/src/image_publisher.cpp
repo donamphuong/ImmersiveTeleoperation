@@ -152,6 +152,6 @@ int main(int argc, char** argv) {
   getCalibrationDetails();
   getUndistortMap();
 
-  // return test();
+  return test();
   return run();
 }

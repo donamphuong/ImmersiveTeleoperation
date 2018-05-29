@@ -15,7 +15,12 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
 )
 
-
+find_package(OpenMP)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
 set(CUDA_TOOLKIT_ROOT_DIR
 /usr/local/cuda-9.1)
 
@@ -57,25 +62,27 @@ target_link_libraries(image_publisher
 	${OpenCV_LIBRARIES}
   stitch
   details
+  -ltbb
 )
 add_dependencies(image_publisher stitcher_generate_messages_cpp)
 
 add_executable(image_processing src/image_processing.cpp)
 target_link_libraries(image_processing
 	${catkin_LIBRARIES}
-	${OpenCV_LIBRARIES})
+	${OpenCV_LIBRARIES}
+)
 add_dependencies(image_processing stitcher_generate_messages_cpp)
 
 add_executable(find_homography src/find_homography.cpp)
 target_link_libraries(find_homography
-${OpenCV_LIBS}
-${catkin_LIBRARIES}
-  )
+  ${OpenCV_LIBS}
+  ${catkin_LIBRARIES}
+)
 add_dependencies(find_homography stitcher_generate_messages_cpp)
-
 add_executable(image_testing src/image_testing.cpp)
 target_link_libraries(image_testing
-${OpenCV_LIBS}
-${catkin_LIBRARIES}
-  )
+  ${OpenCV_LIBS}
+  ${catkin_LIBRARIES}
+  -ltbb
+)
 add_dependencies(image_testing stitcher_generate_messages_cpp)
