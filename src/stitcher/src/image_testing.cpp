@@ -56,7 +56,31 @@ void turnOnVideos() {
   }
 }
 
+void testCPU() {
+  int N = 1<<20; // 1M elements
+
+  float *x = new float[N];
+  float *y = new float[N];
+
+  clock_t start = clock();
+  // initialize x and y arrays on the host
+  for (int i = 0; i < N; i++) {
+    x[i] = 1.0f;
+    y[i] = 2.0f;
+  }
+  cout << "time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
+
+  // Run kernel on 1M elements on the CPU
+  for (int i = 0; i < N; i++)
+      y[i] = x[i] + y[i];
+
+  // Free memory
+  delete [] x;
+  delete [] y;
+}
+
 int main(int argc, char** argv) {
   test();
+  // testCPU();
   return 0;
  }

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/ocl.hpp>
 #include "../details.cpp"
 
 using namespace std;
@@ -28,13 +29,11 @@ vector<Rect> sphericalImageROI(numImage);
 vector<UMat> composedImageUXMap(numImage);
 vector<UMat> composedImageUYMap(numImage);
 vector<Rect> composedImageROI(numImage);
-vector<UMat> composedMaskUXMap(numImage);
-vector<UMat> composedMaskUYMap(numImage);
-vector<Rect> composedMaskROI(numImage);
 
 vector<Point> composedCorners(numImage);
 vector<Size> updatedSizes(numImage);
 vector<UMat> masks_warped(numImage);
+vector<Mat> composed_warped_masks(numImage);
 
 Ptr<WarperCreator> warper_creator;
 Ptr<RotationWarper> warper;

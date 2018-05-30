@@ -28,7 +28,16 @@ void buildComposedMaps() {
       calibrations[i].rectification.convertTo(R, CV_32F);
 
       composedImageROI[i] = warper->buildMaps(image_size, K, R, composedImageUXMap[i], composedImageUYMap[i]);
-      composedMaskROI[i] = warper->buildMaps(image_size, K, R, composedMaskUXMap[i], composedMaskUYMap[i]);
+
+      Mat mask;
+      mask.create(image_size, CV_8U);
+      mask.setTo(Scalar::all(255));
+
+      //Warping mask based on precomputed spherical map
+      UMat maskUXMap, maskUYMap;
+      Rect mask_roi =  warper->buildMaps(image_size, K, R, maskUXMap, maskUYMap);
+      composed_warped_masks[i].create(mask_roi.height + 1, mask_roi.width + 1, mask.type());
+      remap(mask, composed_warped_masks[i], maskUXMap, maskUYMap, INTER_NEAREST, BORDER_CONSTANT);
   }
 }
 
@@ -60,12 +69,7 @@ void buildSphericalMaps() {
 
 }
 
-void precomp() {
-  if (calibrations.empty()) {
-    cout << "Calibration details have not been loaded yet" << endl;
-    exit(ERROR);
-  }
-
+void initHelperTools() {
   double work_megapix = 0.6;
   double seam_megapix = 0.1;
 
@@ -93,11 +97,21 @@ void precomp() {
       cout << "Can't create graph cut seam finder" << endl;
       exit(ERROR);
   }
+}
 
+void precomp() {
+  if (calibrations.empty()) {
+    cout << "Calibration details have not been loaded yet" << endl;
+    exit(ERROR);
+  }
+
+  initHelperTools();
   //Initialise image blender
   initBlender();
 
   //Build maps for warping images
   buildSphericalMaps();
+  int64 start = clock();
   buildComposedMaps();
+  cout << "composed maps: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 }
