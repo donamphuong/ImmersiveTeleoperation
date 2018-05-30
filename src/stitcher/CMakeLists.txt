@@ -3,7 +3,6 @@ project(stitcher)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
-#set(CMAKE_CXX_FLAGS "std=c++11")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -15,14 +14,23 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
 )
 
-find_package(OpenMP)
-if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif()
+# find_package(OpenMP)
+# if (OPENMP_FOUND)
+#     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+#     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+#     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+# endif()
+
 set(CUDA_TOOLKIT_ROOT_DIR
 /usr/local/cuda-9.1)
+
+if(CUDA_FOUND)
+     #collect CUDA files
+     FILE(GLOB_RECURSE CUDA_SRC  *.cu)
+     #build static library
+     CUDA_ADD_LIBRARY(my_cuda_lib ${CUDA_SRC} STATIC)
+     SET(LIBS ${LIBS} ${my_cuda_lib})
+endif()
 
 find_package(OpenCV REQUIRED
 NO_MODULE
@@ -52,9 +60,17 @@ include_directories(SYSTEM ${OpenCV_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS})
 ## OpenCV 4.0 supports GPU functions
 set(catkin_LIBRARIES /opt/ros/kinetic/lib/libimage_transport.so;/opt/ros/kinetic/lib/libmessage_filters.so;/usr/lib/x86_64-linux-gnu/libtinyxml2.so;/opt/ros/kinetic/lib/libclass_loader.so;/usr/lib/libPocoFoundation.so;/usr/lib/x86_64-linux-gnu/libdl.so;/opt/ros/kinetic/lib/libroscpp.so;/usr/lib/x86_64-linux-gnu/libboost_signals.so;/opt/ros/kinetic/lib/libxmlrpcpp.so;/opt/ros/kinetic/lib/libroslib.so;/opt/ros/kinetic/lib/librospack.so;/usr/lib/x86_64-linux-gnu/libpython2.7.so;/usr/lib/x86_64-linux-gnu/libboost_filesystem.so;/usr/lib/x86_64-linux-gnu/libboost_program_options.so;/usr/lib/x86_64-linux-gnu/libtinyxml.so;/opt/ros/kinetic/lib/libcv_bridge.so;/opt/ros/kinetic/lib/librosconsole.so;/opt/ros/kinetic/lib/librosconsole_log4cxx.so;/opt/ros/kinetic/lib/librosconsole_backend_interface.so;/usr/lib/x86_64-linux-gnu/liblog4cxx.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;/opt/ros/kinetic/lib/libroscpp_serialization.so;/opt/ros/kinetic/lib/librostime.so;/opt/ros/kinetic/lib/libcpp_common.so;/usr/lib/x86_64-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_thread.so;/usr/lib/x86_64-linux-gnu/libboost_chrono.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_atomic.so;/usr/lib/x86_64-linux-gnu/libpthread.so;/usr/lib/x86_64-linux-gnu/libconsole_bridge.so
 )
+set(
+    CUDA_NVCC_FLAGS
+    ${CUDA_NVCC_FLAGS};
+    -O3 -gencode arch=compute_30,code=sm_30;
+    --std=c++11
+    )
 
 add_library(details src/details.cpp)
 add_library(stitch src/stitch.cpp)
+add_library(precomp src/precomp.cpp)
+cuda_add_library(test src/test.cu)
 
 add_executable(image_publisher src/image_publisher.cpp)
 target_link_libraries(image_publisher
@@ -79,10 +95,12 @@ target_link_libraries(find_homography
   ${catkin_LIBRARIES}
 )
 add_dependencies(find_homography stitcher_generate_messages_cpp)
-add_executable(image_testing src/image_testing.cpp)
+
+cuda_add_executable(image_testing src/image_testing.cpp)
 target_link_libraries(image_testing
   ${OpenCV_LIBS}
   ${catkin_LIBRARIES}
   -ltbb
+  test
 )
 add_dependencies(image_testing stitcher_generate_messages_cpp)

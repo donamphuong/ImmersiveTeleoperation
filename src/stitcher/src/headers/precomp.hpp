@@ -7,10 +7,6 @@
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
 #include "../details.cpp"
-#include <tbb/tbb.h>
-#include <tbb/task_group.h>
-
-#define DEBUG
 
 using namespace std;
 using namespace cv;
@@ -50,5 +46,3 @@ void initBlender();
 void buildComposedMaps();
 void buildSphericalMaps();
 void precomp();
-void cudaResize(Mat src, Mat &dst, Size size, double fx, double fy);
-Mat stitch(const vector<Mat> full_images, Mat &result);

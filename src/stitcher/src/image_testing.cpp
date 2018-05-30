@@ -1,18 +1,16 @@
 #include <iostream>
 #include <cstdio>
 #include <ctime>
-#include <opencv2/core/ocl.hpp>
-// #include "opencv2/opencv_modules.hpp"
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
-// #include <ros/ros.h>
 #include <opencv2/videoio.hpp>
 #include <opencv2/stitching.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "details.cpp"
 #include <tbb/tbb.h>
+#include "test.h"
 
 using namespace std;
 using namespace cv;
@@ -58,17 +56,7 @@ void turnOnVideos() {
   }
 }
 
-void sum(int a, int b, int &sum) {
-  sum = a+ b;
-}
-
 int main(int argc, char** argv) {
-  int sum1 = 0, sum2 = 0;
-  tbb::parallel_invoke(
-    [&]{sum1 = 1 + 2;},
-    [&]{sum2 = 3 + 4;}
-  );
-
-cout << sum1 + sum2 << endl;
-
-}
+  test();
+  return 0;
+ }

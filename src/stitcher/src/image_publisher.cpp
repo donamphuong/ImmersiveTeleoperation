@@ -42,11 +42,11 @@ int test() {
 
   duration = (getTickCount() - start) / getTickFrequency();
   cout << "printf: " << duration << "\n";
-
-  namedWindow("stitched", WINDOW_NORMAL);
-  resizeWindow("stitched", 1024, 600);
-  imshow ("stitched", stitched);
-  waitKey();
+  //
+  // namedWindow("stitched", WINDOW_NORMAL);
+  // resizeWindow("stitched", 1024, 600);
+  // imshow ("stitched", stitched);
+  // waitKey();
 
   return 0;
 }
