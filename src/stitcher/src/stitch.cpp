@@ -32,22 +32,27 @@ Mat stitch(const vector<Mat> &full_images, Mat &result) {
   #ifdef DEBUG
     start = clock();
   #endif
+
   for (int img_idx = 0; img_idx < numImage; img_idx++) {
     Mat img, img_warped, img_warped_s;
     Mat dilated_mask, seam_mask, mask;
     // Read image and resize it if necessary
     img = full_images[img_idx];
 
-    Mat K, R;
-    calibrations[img_idx].camera_matrix.convertTo(K, CV_32F);
-    calibrations[img_idx].rectification.convertTo(R, CV_32F);
-
     // Warping image based on precomputed spherical map
     Rect image_roi = composedImageROI[img_idx];
     img_warped.create(image_roi.height + 1, image_roi.width + 1, img.type());
+    #ifdef DEBUG
+      startWarp = clock();
+    #endif
+
     remap(img, img_warped, composedImageUXMap[img_idx], composedImageUYMap[img_idx], INTER_LINEAR, BORDER_REFLECT);
 
+    #ifdef DEBUG
+      warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
+    #endif
     img_warped.convertTo(img_warped_s, CV_16S);
+
 
     // Blend the current image
 
@@ -69,10 +74,12 @@ Mat stitch(const vector<Mat> &full_images, Mat &result) {
             dst_weight_row[dx + x] += weight_row[x];
         }
     }
+
   }
   #ifdef DEBUG
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Loop time: " << duration << "\n";
+    cout << "Input images time: " << warpTime << endl;
   #endif
 
   #ifdef DEBUG
@@ -82,8 +89,8 @@ Mat stitch(const vector<Mat> &full_images, Mat &result) {
   float WEIGHT_EPS = 1e-5f;
   normalizeUsingWeightMap(dst_weight_map, dst);
   #ifdef DEBUG
-  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-  cout << "Blending time: " << duration << "\n";
+    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Blending time: " << duration << "\n";
   #endif
   compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
   UMat mask;
