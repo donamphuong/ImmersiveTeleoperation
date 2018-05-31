@@ -22,26 +22,19 @@ float warped_image_scale;
 Size image_scale_size = Size(422, 237);
 Size image_size = Size(1920, 1080);
 
-vector<UMat> sphericalImageUXMap(numImage);
-vector<UMat> sphericalImageUYMap(numImage);
-vector<Rect> sphericalImageROI(numImage);
-
 vector<UMat> composedImageUXMap(numImage);
 vector<UMat> composedImageUYMap(numImage);
 vector<Rect> composedImageROI(numImage);
 
 vector<Point> composedCorners(numImage);
 vector<Size> updatedSizes(numImage);
-vector<UMat> masks_warped(numImage);
 vector<Mat> composed_warped_masks(numImage);
 
 Ptr<WarperCreator> warper_creator;
 Ptr<RotationWarper> warper;
-Ptr<ExposureCompensator> compensator;
-Ptr<SeamFinder> seam_finder;
-Ptr<Blender> blender;
+Mat dst;
+Mat dst_mask;
+Rect dst_roi;
 
-void initBlender();
 void buildComposedMaps();
-void buildSphericalMaps();
 void precomp();

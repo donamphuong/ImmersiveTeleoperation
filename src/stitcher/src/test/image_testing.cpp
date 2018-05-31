@@ -8,7 +8,7 @@
 #include <opencv2/stitching.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include "details.cpp"
+#include "../details.cpp"
 #include <tbb/tbb.h>
 #include "test.h"
 

@@ -11,17 +11,19 @@ void compose(vector<Mat> full_images, Mat &result) {
     double duration, warpTime;
   #endif
 
-  vector<Mat> images_warped_s(numImage);
-
   #ifdef DEBUG
     start = clock();
   #endif
 
-  //build another canvas when the first image in the panorama is inputted
-  blender->prepare(composedCorners, updatedSizes);
+  // //build another canvas when the first image in the panorama is inputted
+  // blender->prepare(composedCorners, updatedSizes);
+
+  //Reset the visibility of the canvas
+  dst.setTo(Scalar::all(0));
+  dst_mask.setTo(Scalar::all(0));
 
   for (int img_idx = 0; img_idx < numImage; img_idx++) {
-    Mat img, img_warped;
+    Mat img, img_warped, img_warped_s;
     Mat dilated_mask, seam_mask, mask;
     // Read image and resize it if necessary
     img = full_images[img_idx];
@@ -35,27 +37,43 @@ void compose(vector<Mat> full_images, Mat &result) {
     img_warped.create(image_roi.height + 1, image_roi.width + 1, img.type());
     remap(img, img_warped, composedImageUXMap[img_idx], composedImageUYMap[img_idx], INTER_LINEAR, BORDER_REFLECT);
 
-    img_warped.convertTo(images_warped_s[img_idx], CV_16S);
-
-    // Compensate exposure
-    // compensator->apply(img_idx, composedCorners[img_idx], img_warped, composed_warped_masks[img_idx]);
-
-    dilate(composed_warped_masks[img_idx], dilated_mask, Mat());
-    resize(dilated_mask, seam_mask, composed_warped_masks[img_idx].size(), 0, 0, INTER_LINEAR_EXACT);
-
-    composed_warped_masks[img_idx] = seam_mask & composed_warped_masks[img_idx];
+    img_warped.convertTo(img_warped_s, CV_16S);
+    //
+    // // Compensate exposure
+    // // compensator->apply(img_idx, composedCorners[img_idx], img_warped, composed_warped_masks[img_idx]);
+    //
+    // dilate(composed_warped_masks[img_idx], dilated_mask, Mat());
+    // resize(dilated_mask, seam_mask, composed_warped_masks[img_idx].size(), 0, 0, INTER_LINEAR_EXACT);
+    //
+    // composed_warped_masks[img_idx] = seam_mask & composed_warped_masks[img_idx];
 
     // Blend the current image
     #ifdef DEBUG
       startWarp = clock();
     #endif
-    blender->feed(images_warped_s[img_idx], composed_warped_masks[img_idx], composedCorners[img_idx]);
+    // blender->feed(img_warped_s, composed_warped_masks[img_idx], composedCorners[img_idx]);
+    int dx = composedCorners[img_idx].x - dst_roi.x;
+    int dy = composedCorners[img_idx].y - dst_roi.y;
+
+    for (int y = 0; y < img_warped_s.rows; ++y) {
+      const Point3_<short> *src_row = img_warped_s.ptr<Point3_<short> >(y);
+      Point3_<short> *dst_row = dst.ptr<Point3_<short> >(dy + y);
+      const uchar *mask_row = composed_warped_masks[img_idx].ptr<uchar>(y);
+      uchar *dst_mask_row = dst_mask.ptr<uchar>(dy + y);
+
+      for (int x = 0; x < img_warped_s.cols; ++x)
+      {
+          if (mask_row[x])
+              dst_row[dx + x] = src_row[x];
+          dst_mask_row[dx + x] |= mask_row[x];
+      }
+    }
+
     #ifdef DEBUG
       warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
     #endif
   }
-
-  images_warped_s.clear();
+  cout << "hllo" << endl;
 
   #ifdef DEBUG
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
@@ -67,7 +85,14 @@ void compose(vector<Mat> full_images, Mat &result) {
   #endif
 
   Mat result_s, result_mask;
-  blender->blend(result_s, result_mask);
+  // blender->blend(result_s, result_mask);
+  UMat mask;
+  compare(result_mask, 0, mask, CMP_EQ);
+  result_s.setTo(Scalar::all(0), mask);
+  result_s = (dst);
+  result_mask = (dst_mask);
+  dst.release();
+  dst_mask.release();
 
   #ifdef DEBUG
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
@@ -109,72 +134,8 @@ Mat stitch(const vector<Mat> &full_images, Mat &result) {
   full_img.release();
   img.release();
 
-  vector<UMat> images_warped(numImage);
-  vector<Size> sizes(numImage);
-  vector<Point> corners(numImage);
-
-  #ifdef DEBUG
-    start = clock();
-  #endif
-
-  // Warping image based on precomputed spherical map
-  for (int i = 0; i < numImage; ++i) {
-    Rect image_roi = sphericalImageROI[i];
-    images_warped[i].create(image_roi.height + 1, image_roi.width + 1, images[i].type());
-    remap(images[i], images_warped[i], sphericalImageUXMap[i], sphericalImageUYMap[i], INTER_LINEAR, BORDER_REFLECT);
-
-    corners[i] = image_roi.tl();
-    sizes[i] = images_warped[i].size();
-  }
-
-  #ifdef DEBUG
-    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-    cout << "Warping time: " << duration << "\n";
-  #endif
-
-  vector<UMat> images_warped_f(numImage);
-  for (int i = 0; i < numImage; ++i) {
-    images_warped[i].convertTo(images_warped_f[i], CV_32F);
-  }
-
-  #ifdef DEBUG
-    start = clock();
-  #endif
-
-    compensator->feed(corners, images_warped, masks_warped);
-
-  #ifdef DEBUG
-    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-    cout << "Exposure Compensating Time: " << duration << endl;
-  #endif
-
-  #ifdef DEBUG
-    start = clock();
-  #endif
-
-    seam_finder->find(images_warped_f, corners, masks_warped);
-
-  #ifdef DEBUG
-    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-    cout << "Finding seam time: " << duration << "\n";
-  #endif
-
-  #ifdef DEBUG
-    start = clock();
-  #endif
-
-  #ifdef DEBUG
-    duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-    cout << "Conversion time: " << duration << endl;
-  #endif
-
   // Release unused memory
   images.clear();
-  images_warped.clear();
-  images_warped_f.clear();
-  corners.clear();
-  sizes.clear();
-  masks_warped.clear();
 
   compose(full_images, result);
 }

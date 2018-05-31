@@ -72,7 +72,7 @@ set(
 add_library(details src/details.cpp)
 add_library(stitch src/stitch.cpp)
 add_library(precomp src/precomp.cpp)
-cuda_add_library(test src/test.cu)
+cuda_add_library(test src/test/test.cu)
 
 add_executable(image_publisher src/image_publisher.cpp)
 target_link_libraries(image_publisher
@@ -85,7 +85,7 @@ target_link_libraries(image_publisher
 )
 add_dependencies(image_publisher stitcher_generate_messages_cpp)
 
-add_executable(image_processing src/image_processing.cpp)
+add_executable(image_processing src/test/image_processing.cpp)
 target_link_libraries(image_processing
 	${catkin_LIBRARIES}
 	${OpenCV_LIBRARIES}
@@ -99,7 +99,7 @@ target_link_libraries(find_homography
 )
 add_dependencies(find_homography stitcher_generate_messages_cpp)
 
-cuda_add_executable(image_testing src/image_testing.cpp)
+cuda_add_executable(image_testing src/test/image_testing.cpp)
 target_link_libraries(image_testing
   ${OpenCV_LIBS}
   ${catkin_LIBRARIES}
