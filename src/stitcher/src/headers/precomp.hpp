@@ -27,14 +27,14 @@ vector<UMat> composedImageUYMap(numImage);
 vector<Rect> composedImageROI(numImage);
 
 vector<Point> composedCorners(numImage);
-vector<Size> updatedSizes(numImage);
-vector<Mat> composed_warped_masks(numImage);
 
 Ptr<WarperCreator> warper_creator;
 Ptr<RotationWarper> warper;
 Mat dst;
 Mat dst_mask;
 Rect dst_roi;
+Mat dst_weight_map;
+vector<UMat> weight_maps(numImage);
 
 void buildComposedMaps();
 void precomp();

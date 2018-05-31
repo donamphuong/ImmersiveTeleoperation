@@ -1,6 +1,6 @@
 #include "headers/precomp.hpp"
 
-void buildComposedMaps() {
+void buildComposedMaps(vector<Mat> &composed_warped_masks, vector<Size> &updated_sizes) {
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
       calibrations[i].camera_matrix.convertTo(K, CV_32F);
@@ -18,9 +18,15 @@ void buildComposedMaps() {
       composed_warped_masks[i].create(mask_roi.height + 1, mask_roi.width + 1, mask.type());
       remap(mask, composed_warped_masks[i], maskUXMap, maskUYMap, INTER_NEAREST, BORDER_CONSTANT);
   }
+
+  //Build weight map that is used in feather blending
+  float sharpness = 0.02f;
+  for (int i = 0; i < numImage; i++) {
+    createWeightMap(composed_warped_masks[i], sharpness, weight_maps[i]);
+  }
 }
 
-void initComposedCanvas() {
+void initComposedCanvas(vector<Mat> &composed_warped_masks, vector<Size> &updated_sizes) {
   // Update corners and sizes
   for (int i = 0; i < numImage; ++i) {
       // Update corner and size
@@ -29,13 +35,16 @@ void initComposedCanvas() {
       calibrations[i].rectification.convertTo(R, CV_32F);
       Rect roi = warper->warpRoi(image_size, K, R);
       composedCorners[i] = roi.tl();
-      updatedSizes[i] = roi.size();
+      updated_sizes[i] = roi.size();
   }
 
   //Preparing composition result
-  dst_roi = resultRoi(composedCorners, updatedSizes);
+  dst_roi = resultRoi(composedCorners, updated_sizes);
   dst.create(dst_roi.size(), CV_16SC3);
   dst_mask.create(dst_roi.size(), CV_8U);
+
+  dst_weight_map.create(dst_roi.size(), CV_32F);
+  dst_weight_map.setTo(0);
 }
 
 void initHelperTools() {
@@ -65,6 +74,16 @@ void precomp() {
   }
 
   initHelperTools();
-  buildComposedMaps();
-  initComposedCanvas();
+
+  vector<Mat> composed_warped_masks(numImage);
+  vector<Size> updated_sizes(numImage);
+
+  buildComposedMaps(composed_warped_masks, updated_sizes);
+  initComposedCanvas(composed_warped_masks, updated_sizes);
+
+  vector<Mat> maps(numImage);
+  for (int i = 0; i < numImage; i++) {
+    maps[i] = weight_maps[i].getMat(ACCESS_READ);
+  }
+
 }
