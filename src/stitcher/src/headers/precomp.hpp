@@ -27,6 +27,7 @@ vector<UMat> composedImageUYMap(numImage);
 vector<Rect> composedImageROI(numImage);
 
 vector<Point> composedCorners(numImage);
+vector<Mat> composed_warped_masks(numImage);
 
 Ptr<WarperCreator> warper_creator;
 Ptr<RotationWarper> warper;

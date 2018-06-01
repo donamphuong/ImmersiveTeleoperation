@@ -1,6 +1,6 @@
 #include "headers/precomp.hpp"
 
-void buildComposedMaps(vector<Mat> &composed_warped_masks, vector<Size> &updated_sizes) {
+void buildComposedMaps(vector<Size> &updated_sizes) {
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
       calibrations[i].camera_matrix.convertTo(K, CV_32F);
@@ -26,7 +26,7 @@ void buildComposedMaps(vector<Mat> &composed_warped_masks, vector<Size> &updated
   }
 }
 
-void initComposedCanvas(vector<Mat> &composed_warped_masks, vector<Size> &updated_sizes) {
+void initComposedCanvas(vector<Size> &updated_sizes) {
   // Update corners and sizes
   for (int i = 0; i < numImage; ++i) {
       // Update corner and size
@@ -75,11 +75,10 @@ void precomp() {
 
   initHelperTools();
 
-  vector<Mat> composed_warped_masks(numImage);
   vector<Size> updated_sizes(numImage);
 
-  buildComposedMaps(composed_warped_masks, updated_sizes);
-  initComposedCanvas(composed_warped_masks, updated_sizes);
+  buildComposedMaps(updated_sizes);
+  initComposedCanvas(updated_sizes);
 
   vector<Mat> maps(numImage);
   for (int i = 0; i < numImage; i++) {

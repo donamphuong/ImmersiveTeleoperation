@@ -98,22 +98,6 @@ void processUsingOpenCvCpu() {
 	cout << "OpenCv Cpu code ran in:" << duration << " secs" << endl;
  }
 
- void processUsingGpu() {
-   //Read input image from the disk
-	cv::Mat input = cv::imread("test34.png");
-	if(input.empty())
-	{
-		std::cout<<"Image Not Found: "<< "test34.png" << std::endl;
-		// return;
-	}
- 
-	//Create output image
-	Size newSize( input.size().width / 4, input.size().height / 4 );
-	Mat output (newSize, input.type());
- 
-	downscaleCuda(input, output);
- }
-
 int main(int argc, char** argv) {
   clock_t start = clock();
   processUsingOpenCvCpu();

@@ -8,6 +8,7 @@ using namespace cv;
 #define startCamera 4
 #define numImage 3
 #define ERROR -1
+#define WEIGHT_EPS 1e-5f
 
 class CalibrationDetails {
   public:

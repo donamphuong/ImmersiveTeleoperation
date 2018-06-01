@@ -1,9 +1,61 @@
 #include "precomp.cpp"
-#include <tbb/tbb.h>
-#include <tbb/task_group.h>
-#include <tbb/parallel_invoke.h>
 
 #define DEBUG
+
+void normalize_blended_image() {
+  for (int y = 0; y < dst.rows; ++y) {
+      Point3_<short> *row = dst.ptr<Point3_<short> >(y);
+      const float *weight_row = dst_weight_map.ptr<float>(y);
+
+      for (int x = 0; x < dst.cols; ++x) {
+          row[x].x = static_cast<short>(row[x].x / (weight_row[x] + WEIGHT_EPS));
+          row[x].y = static_cast<short>(row[x].y / (weight_row[x] + WEIGHT_EPS));
+          row[x].z = static_cast<short>(row[x].z / (weight_row[x] + WEIGHT_EPS));
+      }
+  }
+}
+
+void feather_blend(int img_idx, Mat &img_warped_s, vector<Mat> &maps) {
+  // Blend the current image
+
+  int dx = composedCorners[img_idx].x - dst_roi.x;
+  int dy = composedCorners[img_idx].y - dst_roi.y;
+
+  for (int y = 0; y < img_warped_s.rows; ++y)
+  {
+      const Point3_<short>* src_row = img_warped_s.ptr<Point3_<short> >(y);
+      Point3_<short>* dst_row = dst.ptr<Point3_<short> >(dy + y);
+      const float* weight_row = maps[img_idx].ptr<float>(y);
+      float* dst_weight_row = dst_weight_map.ptr<float>(dy + y);
+
+      for (int x = 0; x < img_warped_s.cols; ++x)
+      {
+          dst_row[dx + x].x += static_cast<short>(src_row[x].x * weight_row[x]);
+          dst_row[dx + x].y += static_cast<short>(src_row[x].y * weight_row[x]);
+          dst_row[dx + x].z += static_cast<short>(src_row[x].z * weight_row[x]);
+          dst_weight_row[dx + x] += weight_row[x];
+      }
+  }
+}
+
+void place_image(int img_idx, Mat &img_warped_s) {
+  int dx = composedCorners[img_idx].x - dst_roi.x;
+  int dy = composedCorners[img_idx].y - dst_roi.y;
+
+  for (int y = 0; y < img_warped_s.rows; ++y) {
+    const Point3_<short> *src_row = img_warped_s.ptr<Point3_<short> >(y);
+    Point3_<short> *dst_row = dst.ptr<Point3_<short> >(dy + y);
+    const uchar *mask_row = composed_warped_masks[img_idx].ptr<uchar>(y);
+    uchar *dst_mask_row = dst_mask.ptr<uchar>(dy + y);
+
+    for (int x = 0; x < img_warped_s.cols; ++x)
+    {
+        if (mask_row[x])
+            dst_row[dx + x] = src_row[x];
+        dst_mask_row[dx + x] |= mask_row[x];
+    }
+  }
+}
 
 Mat stitch(const vector<Mat> &full_images, Mat &result) {
   #ifdef DEBUG
@@ -45,7 +97,7 @@ Mat stitch(const vector<Mat> &full_images, Mat &result) {
     #ifdef DEBUG
       startWarp = clock();
     #endif
-
+    
     remap(img, img_warped, composedImageUXMap[img_idx], composedImageUYMap[img_idx], INTER_LINEAR, BORDER_REFLECT);
 
     #ifdef DEBUG
@@ -53,29 +105,10 @@ Mat stitch(const vector<Mat> &full_images, Mat &result) {
     #endif
     img_warped.convertTo(img_warped_s, CV_16S);
 
-
-    // Blend the current image
-
-    int dx = composedCorners[img_idx].x - dst_roi.x;
-    int dy = composedCorners[img_idx].y - dst_roi.y;
-
-    for (int y = 0; y < img_warped_s.rows; ++y)
-    {
-        const Point3_<short>* src_row = img_warped_s.ptr<Point3_<short> >(y);
-        Point3_<short>* dst_row = dst.ptr<Point3_<short> >(dy + y);
-        const float* weight_row = maps[img_idx].ptr<float>(y);
-        float* dst_weight_row = dst_weight_map.ptr<float>(dy + y);
-
-        for (int x = 0; x < img_warped_s.cols; ++x)
-        {
-            dst_row[dx + x].x += static_cast<short>(src_row[x].x * weight_row[x]);
-            dst_row[dx + x].y += static_cast<short>(src_row[x].y * weight_row[x]);
-            dst_row[dx + x].z += static_cast<short>(src_row[x].z * weight_row[x]);
-            dst_weight_row[dx + x] += weight_row[x];
-        }
-    }
-
+    // place_image(img_idx, img_warped_s);
+    feather_blend(img_idx, img_warped_s, maps);
   }
+
   #ifdef DEBUG
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Loop time: " << duration << "\n";
@@ -85,19 +118,16 @@ Mat stitch(const vector<Mat> &full_images, Mat &result) {
   #ifdef DEBUG
     start = clock();
   #endif
-
-  float WEIGHT_EPS = 1e-5f;
-  normalizeUsingWeightMap(dst_weight_map, dst);
+  normalize_blended_image();
+  compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
   #ifdef DEBUG
     duration = (clock() - start) / (double) CLOCKS_PER_SEC;
     cout << "Blending time: " << duration << "\n";
   #endif
-  compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
+
   UMat mask;
   compare(dst_mask, 0, mask, CMP_EQ);
   dst.setTo(Scalar::all(0), mask);
-
-
-
   dst.convertTo(result, CV_8U);
 }
+
