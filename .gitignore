@@ -2,3 +2,8 @@ build/*
 devel/*
 *.png
 *.jpg
+*.out
+*.bag
+src/stitcher/.vscode/*
+install/*
+*.active

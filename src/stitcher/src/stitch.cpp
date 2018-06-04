@@ -3,7 +3,7 @@
 #include <tbb/task_group.h>
 #include <tbb/parallel_invoke.h>
 
-// #define DEBUG
+#define DEBUG
 const float WEIGHT_EPS = 1e-5f;
 
 void place_images(int img_idx, Mat &img_warped_s) {
@@ -59,14 +59,9 @@ void normalize_blended_image() {
   }
 }
 
-Mat stitch(vector<Mat> &full_images, Mat &result) {
+void stitch(vector<Mat> &full_images, Mat &result) {
   #ifdef DEBUG
     cout << endl << "START" << endl;
-    clock_t start, startWarp;
-    double duration, warpTime;
-  #endif
-
-    #ifdef DEBUG
     clock_t start, startWarp;
     double duration, warpTime;
   #endif
@@ -81,7 +76,12 @@ Mat stitch(vector<Mat> &full_images, Mat &result) {
   //Reset the visibility of the canvas
   dst.setTo(Scalar::all(0));
   dst_mask.setTo(Scalar::all(0));
-  // dst_weight_map.setTo(0);
+  dst_weight_map.setTo(0);
+
+  vector<Mat> maps(numImage);
+  for (int i = 0; i < numImage; i++) {
+    maps[i] = weight_maps[i].getMat(ACCESS_READ);
+  }
 
   Mat img, img_warped, img_warped_s;
   for (int img_idx = 0; img_idx < numImage; img_idx++) {
@@ -101,11 +101,11 @@ Mat stitch(vector<Mat> &full_images, Mat &result) {
     #endif
 
     float sharpness = 0.02f;
-    Mat weight_map;
+    // Mat weight_map;
     // createWeightMap(composed_warped_masks[img_idx], sharpness, weight_map);
 
-    // feather_blend(img_idx, img_warped_s, weight_map);
-    place_images(img_idx, img_warped_s);
+    feather_blend(img_idx, img_warped_s, maps[img_idx]);
+    // place_images(img_idx, img_warped_s);
 
     #ifdef DEBUG
       warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
@@ -124,8 +124,8 @@ Mat stitch(vector<Mat> &full_images, Mat &result) {
     start = clock();
   #endif
 
-  // normalize_blended_image();
-  // compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
+  normalize_blended_image();
+  compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
   
   UMat mask;
   compare(dst_mask, 0, mask, CMP_EQ);
@@ -139,6 +139,4 @@ Mat stitch(vector<Mat> &full_images, Mat &result) {
   #endif
 
   dst.convertTo(result, CV_8U);
-  // dst.release();
-  full_images.clear();
 }

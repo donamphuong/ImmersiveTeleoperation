@@ -10,8 +10,8 @@
 
 using namespace cv;
 
-vector<UMat> undistortMap1(numImage);
-vector<UMat> undistortMap2(numImage);
+vector<Mat> undistortMap1(numImage);
+vector<Mat> undistortMap2(numImage);
 
 image_transport::Publisher pub;
 
@@ -56,7 +56,7 @@ void getUndistortMap() {
 
   for (int cam = 0; cam < numImage; cam++) {
     CalibrationDetails cal = calibrations[cam];
-    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, Mat(), cal.camera_matrix, image_size, undistortMap1[0].type(), undistortMap1[cam], undistortMap2[cam]);
+    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, I, Mat(), image_size, CV_16SC2, undistortMap1[cam], undistortMap2[cam]);
   }
 }
 
@@ -107,17 +107,13 @@ int run() {
     double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
     cout << "Stitching Time: " << duration << endl;
 
-    images.clear();
     imshow ("stitched", stitched);
     waitKey(1);
+    cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
     pub.publish(msg);
 
-    // msg.release();
-    stitched.release();
-
-    cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
     ros::spinOnce();
     loop_rate.sleep();
   }
@@ -131,12 +127,9 @@ void save_frame(VideoCapture cap, std::vector<Mat >&images, int cam) {
   cap >> frame;
   //Check if the grabbed frame is actually full with some content
   if (!frame.empty()) {
-    Mat corrected;
+    Mat corrected = Mat(image_size.width, image_size.height, CV_8UC3);
 
-    // #ifdef DEBUG
-      clock_t start = clock();
-    // #endif
-
+    start = clock();
     remap(frame, corrected, undistortMap1[cam], undistortMap2[cam], INTER_LINEAR, BORDER_CONSTANT);
 
     // #ifdef DEBUG
