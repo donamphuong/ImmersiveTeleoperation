@@ -56,7 +56,7 @@ void getUndistortMap() {
 
   for (int cam = 0; cam < numImage; cam++) {
     CalibrationDetails cal = calibrations[cam];
-    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, I, Mat(), image_size, undistortMap1[cam].type(), undistortMap1[cam], undistortMap2[cam]);
+    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, Mat(), cal.camera_matrix, image_size, undistortMap1[0].type(), undistortMap1[cam], undistortMap2[cam]);
   }
 }
 
@@ -73,8 +73,12 @@ int run() {
   cv::VideoCapture cap[numImage];
 
   for (int video_source = 1; video_source < numImage + 1; video_source++) {
-    string gst = "v4l2src device=/dev/video" + std::to_string(video_source) + " ! video/x-raw, format=BGR, width=1920, height=1080 ! appsink";
-    cap[video_source-1].open(gst);
+    cap[video_source-1].open(video_source);
+    cap[video_source-1].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
+    cap[video_source-1].set(CAP_PROP_FRAME_WIDTH,1920);
+    cap[video_source-1].set(CAP_PROP_FRAME_HEIGHT,1080);
+    cap[video_source-1].set(CAP_PROP_AUTOFOCUS,true);
+
 
     //Check if video device can be opened with the given index
     if (!cap[video_source-1].isOpened()) {
@@ -84,8 +88,10 @@ int run() {
   }
 
   namedWindow("stitched", WINDOW_NORMAL);
-  resizeWindow("stitched", 1024, 600);
+  resizeWindow("stitched", 1920, 1080);
   precomp();
+  calibrations.clear();
+
 
   while (nh.ok()) {
     clock_t start = clock();
@@ -94,7 +100,6 @@ int run() {
     for (int i = 0; i < numImage; i++) {
       save_frame(cap[i], images, i);
     }
-    cout << "Undistorting: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
     startStitch = clock();
     Mat stitched;
@@ -109,6 +114,9 @@ int run() {
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
     pub.publish(msg);
 
+    // msg.release();
+    stitched.release();
+
     cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
     ros::spinOnce();
     loop_rate.sleep();
@@ -116,26 +124,28 @@ int run() {
 }
 
 //Show contents of cameras after calibrations
-void save_frame(VideoCapture cap, std::vector<Mat>& images, int cam) {
+void save_frame(VideoCapture cap, std::vector<Mat >&images, int cam) {
   Mat frame;
-  clock_t start = clock();
+  clock_t start;
+  double duration;
   cap >> frame;
-  cout << "saving time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
   //Check if the grabbed frame is actually full with some content
   if (!frame.empty()) {
     Mat corrected;
 
-    #ifdef DEBUG
+    // #ifdef DEBUG
       clock_t start = clock();
-    #endif
+    // #endif
 
     remap(frame, corrected, undistortMap1[cam], undistortMap2[cam], INTER_LINEAR, BORDER_CONSTANT);
 
-    #ifdef DEBUG
-      cout << "Undistorting: " << (start - clock()) / (double) CLOCKS_PER_SEC << endl;
-    #endif
+    // #ifdef DEBUG
+      duration = (-start + clock()) / (double) CLOCKS_PER_SEC;
+      cout << "Undistorting: " << duration << endl;
+    // #endif
 
     images.push_back(corrected);
+    frame.release();
     // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
     // pub.publish(msg);
   }
@@ -152,6 +162,6 @@ int main(int argc, char** argv) {
   getCalibrationDetails();
   getUndistortMap();
 
-  return test();
+  // return test();
   return run();
 }

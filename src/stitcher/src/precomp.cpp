@@ -41,6 +41,10 @@ void initComposedCanvas() {
 void initHelperTools() {
   double work_megapix = 0.6;
   double seam_megapix = 0.1;
+  double work_scale = 0.5;
+  double seam_scale = 1;
+  double seam_work_aspect = 1;
+  float warped_image_scale;
 
   work_scale = min(1.0, sqrt(work_megapix * 1e6 / image_size.area()));
   seam_scale = min(1.0, sqrt(seam_megapix * 1e6 / image_size.area()));
@@ -66,5 +70,15 @@ void precomp() {
 
   initHelperTools();
   buildComposedMaps();
-  initComposedCanvas();
+  initComposedCanvas();  
+  dst_weight_map.create(dst_roi.size(), CV_32F);
+
+  //Build weight map that is used in feather blending
+  float sharpness = 0.02f;
+  for (int i = 0; i < numImage; i++) {
+    createWeightMap(composed_warped_masks[i], sharpness, weight_maps[i]);
+  }
+
+  warper.release();
+  warper_creator.release();
 }
