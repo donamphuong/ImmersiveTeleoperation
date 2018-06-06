@@ -7,16 +7,12 @@
 #include <math.h>
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/cudaimgproc.hpp>
-#include <opencv2/cudafeatures2d.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/stitching.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/xfeatures2d.hpp>
-#include <opencv2/cudaimgproc.hpp>
 #include <opencv2/stitching/detail/warpers.hpp>
 #include "details.cpp"
 

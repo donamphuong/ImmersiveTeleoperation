@@ -54,7 +54,7 @@ void initHelperTools() {
   warped_image_scale = calibrations[0].camera_matrix.at<double>(0, 0);
 
   // Warp images and their masks
-  warper_creator = makePtr<cv::SphericalWarperGpu>();
+  warper_creator = makePtr<cv::SphericalWarper>();
   if (!warper_creator) {
       cout << "Can't create cylindrical warper" << endl;
       exit(ERROR);
@@ -70,7 +70,7 @@ void precomp() {
 
   initHelperTools();
   buildComposedMaps();
-  initComposedCanvas();  
+  initComposedCanvas();
   dst_weight_map.create(dst_roi.size(), CV_32F);
 
   //Build weight map that is used in feather blending

@@ -30,9 +30,9 @@ using namespace tbb;
 void turnOnVideos() {
   getCalibrationDetails();
   VideoCapture cap1;
-  cap1.open(1);
+  cap1.open(startCamera-1);
   VideoCapture cap2;
-  cap2.open(2);
+  cap2.open(startCamera);
 
   cap1.set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
   cap1.set(CAP_PROP_FRAME_WIDTH,1920);
@@ -113,6 +113,6 @@ void testStitch() {
 
 
 int main(int argc, char** argv) {
-  // turnOnVideos();
-  testStitch();
+  turnOnVideos();
+  // testStitch();
 }

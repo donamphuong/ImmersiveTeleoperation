@@ -10,7 +10,7 @@ void printVector(vector<Mat> vect) {
 void getCalibrationDetails() {
   for (int i = 1; i <= NUM_IMAGES_PANORAMA; i++) {
     CalibrationDetails cal;
-    std::string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(i) + ".yaml";
+    std::string filename = "/data/jas215/pho/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(i) + ".yaml";
     FileStorage fs(filename, FileStorage::READ);
 
     if (!fs.isOpened()) {
@@ -30,9 +30,9 @@ void getCalibrationDetails() {
   vector<Mat> homographies = homography();
   calibrations[startCamera-1].rectification = Mat_<double>::eye(3, 3);
 
-  for (int i = startCamera; i < NUM_IMAGES_PANORAMA-1; i++) {
+  for (int i = startCamera; i < NUM_IMAGES_PANORAMA; i++) {
     vector<Mat> rotations, translations, normals;
-    decomposeHomographyMat(homographies[i-1], calibrations[0].camera_matrix, rotations, translations, normals);
+    decomposeHomographyMat(homographies[i-1], calibrations[i].camera_matrix, rotations, translations, normals);
     calibrations[i].rectification = calibrations[i-1].rectification * rotations[0];
   }
 }
@@ -40,9 +40,9 @@ void getCalibrationDetails() {
 vector<Mat> homography() {
   vector<Mat> homographies(NUM_IMAGES_PANORAMA-1);
   // for (int i = 1; i < numImage; i++) {
-  for (int i = 1; i < NUM_IMAGES_PANORAMA-1; i++) {
+  for (int i = 1; i < NUM_IMAGES_PANORAMA; i++) {
     Mat h;
-    string filename = "/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H" +
+    string filename = "/data/jas215/pho/ImmersiveTeleoperation/src/stitcher/homography/H" +
                       to_string(i+1) + to_string(i) + ".yaml";
     FileStorage file(filename, FileStorage::READ);
 

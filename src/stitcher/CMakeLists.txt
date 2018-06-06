@@ -23,9 +23,6 @@ if (OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-set(CUDA_TOOLKIT_ROOT_DIR
-/usr/local/cuda-9.1)
-
 if(CUDA_FOUND)
      #collect CUDA files
      FILE(GLOB_RECURSE CUDA_SRC  *.cu)
@@ -34,10 +31,7 @@ if(CUDA_FOUND)
      SET(LIBS ${LIBS} ${my_cuda_lib})
 endif()
 
-find_package(OpenCV REQUIRED
-NO_MODULE
-PATHS /usr/local
-NO_DEFAULT_PATH)
+find_package(OpenCV REQUIRED)
 
 ###################################
 ## catkin specific configuration ##
@@ -60,8 +54,8 @@ include_directories(SYSTEM ${OpenCV_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS})
 
 ## To allow newest version of OpenCV to be used
 ## OpenCV 4.0 supports GPU functions
-set(catkin_LIBRARIES /opt/ros/kinetic/lib/libimage_transport.so;/opt/ros/kinetic/lib/libmessage_filters.so;/usr/lib/x86_64-linux-gnu/libtinyxml2.so;/opt/ros/kinetic/lib/libclass_loader.so;/usr/lib/libPocoFoundation.so;/usr/lib/x86_64-linux-gnu/libdl.so;/opt/ros/kinetic/lib/libroscpp.so;/usr/lib/x86_64-linux-gnu/libboost_signals.so;/opt/ros/kinetic/lib/libxmlrpcpp.so;/opt/ros/kinetic/lib/libroslib.so;/opt/ros/kinetic/lib/librospack.so;/usr/lib/x86_64-linux-gnu/libpython2.7.so;/usr/lib/x86_64-linux-gnu/libboost_filesystem.so;/usr/lib/x86_64-linux-gnu/libboost_program_options.so;/usr/lib/x86_64-linux-gnu/libtinyxml.so;/opt/ros/kinetic/lib/libcv_bridge.so;/opt/ros/kinetic/lib/librosconsole.so;/opt/ros/kinetic/lib/librosconsole_log4cxx.so;/opt/ros/kinetic/lib/librosconsole_backend_interface.so;/usr/lib/x86_64-linux-gnu/liblog4cxx.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;/opt/ros/kinetic/lib/libroscpp_serialization.so;/opt/ros/kinetic/lib/librostime.so;/opt/ros/kinetic/lib/libcpp_common.so;/usr/lib/x86_64-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_thread.so;/usr/lib/x86_64-linux-gnu/libboost_chrono.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_atomic.so;/usr/lib/x86_64-linux-gnu/libpthread.so;/usr/lib/x86_64-linux-gnu/libconsole_bridge.so
-)
+#set(catkin_LIBRARIES #/opt/ros/kinetic/lib/libimage_transport.so;/opt/ros/kinetic/lib/libmessage_filters.so;/usr/lib/x86_64-linux-gnu/libtinyxml2.so;/opt/ros/kinetic/lib/libclass_loader.so;/usr/lib/libPocoFoundation.so;/usr/lib/x86_64-linux-gnu/libdl.so;/opt/ros/kinetic/lib/libroscpp.so;/usr/lib/x86_64-linux-gnu/libboost_signals.so;/opt/ros/kinetic/lib/libxmlrpcpp.so;/opt/ros/kinetic/lib/libroslib.so;/opt/ros/kinetic/lib/librospack.so;/usr/lib/x86_64-linux-gnu/libpython2.7.so;/usr/lib/x86_64-linux-gnu/libboost_files#ystem.so;/usr/lib/x86_64-linux-gnu/libboost_program_options.so;/usr/lib/x86_64-linux-gnu/libtinyxml.so;/opt/ros/kinetic/lib/libcv_bridge.so;/opt/ros/kinetic/lib/librosconsole.so;/opt/ros/kinetic/lib/librosconsole_log4cxx.so;/opt/ros/kinetic/lib/librosconsole_backend_interface.so;/usr/lib/x86_64-linux-gnu/liblog4cxx.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;/opt/ros/kinetic/lib/libroscpp_serialization.so;/opt/ros/kinetic/lib/librostime.so;/opt/ros/kinetic/lib/libcpp_common.so;/usr/lib/x86_6#4-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_thread.so;/usr/lib/x86_64-linux-gnu/libboost_chrono.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_atomic.so;/usr/lib/x86_64-linux-gnu/libpthread.so;/usr/lib/x86_64-linux-gnu/libconsole_bridge.so
+#)
 set(
     CUDA_NVCC_FLAGS
     ${CUDA_NVCC_FLAGS};
@@ -72,7 +66,7 @@ set(
 add_library(details src/details.cpp)
 add_library(stitch src/stitch.cpp)
 add_library(precomp src/precomp.cpp )
-cuda_add_library(test src/test/test.cu)
+#cuda_add_library(test src/test/test.cu)
 
 target_link_libraries(precomp
   ${OpenCV_LIBRARIES})
@@ -82,7 +76,6 @@ target_link_libraries(image_publisher
 	${catkin_LIBRARIES}
 	${OpenCV_LIBRARIES}
   stitch
-  test
   details
   precomp
 )
@@ -95,20 +88,12 @@ target_link_libraries(image_processing
 )
 add_dependencies(image_processing stitcher_generate_messages_cpp)
 
-add_executable(find_homography src/find_homography.cpp)
-target_link_libraries(find_homography
-  ${OpenCV_LIBS}
-  ${catkin_LIBRARIES}
-)
-add_dependencies(find_homography stitcher_generate_messages_cpp)
-
-cuda_add_executable(image_testing src/test/image_testing.cpp)
+add_executable(image_testing src/test/image_testing.cpp)
 target_link_libraries(image_testing
   ${OpenCV_LIBS}
   ${catkin_LIBRARIES}
   -ltbb
   details
-  test
   precomp
   stitch
 )
