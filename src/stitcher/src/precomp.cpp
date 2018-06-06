@@ -3,8 +3,8 @@
 void buildComposedMaps() {
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
-      calibrations[i].camera_matrix.convertTo(K, CV_32F);
-      calibrations[i].rectification.convertTo(R, CV_32F);
+      calibrations[0].camera_matrix.convertTo(K, CV_32F);
+      calibrations[startCamera - 1 + i].rectification.convertTo(R, CV_32F);
 
       composedImageROI[i] = warper->buildMaps(image_size, K, R, composedImageUXMap[i], composedImageUYMap[i]);
 
@@ -25,8 +25,8 @@ void initComposedCanvas() {
   for (int i = 0; i < numImage; ++i) {
       // Update corner and size
       Mat K, R;
-      calibrations[i].camera_matrix.convertTo(K, CV_32F);
-      calibrations[i].rectification.convertTo(R, CV_32F);
+      calibrations[0].camera_matrix.convertTo(K, CV_32F);
+      calibrations[startCamera - 1 + i].rectification.convertTo(R, CV_32F);
       Rect roi = warper->warpRoi(image_size, K, R);
       composedCorners[i] = roi.tl();
       updatedSizes[i] = roi.size();

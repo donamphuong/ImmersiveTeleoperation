@@ -71,17 +71,20 @@ set(
 
 add_library(details src/details.cpp)
 add_library(stitch src/stitch.cpp)
-add_library(precomp src/precomp.cpp)
+add_library(precomp src/precomp.cpp )
 cuda_add_library(test src/test/test.cu)
+
+target_link_libraries(precomp
+  ${OpenCV_LIBRARIES})
 
 add_executable(image_publisher src/image_publisher.cpp)
 target_link_libraries(image_publisher
 	${catkin_LIBRARIES}
 	${OpenCV_LIBRARIES}
   stitch
-  details
-  -ltbb
   test
+  details
+  precomp
 )
 add_dependencies(image_publisher stitcher_generate_messages_cpp)
 
@@ -104,6 +107,9 @@ target_link_libraries(image_testing
   ${OpenCV_LIBS}
   ${catkin_LIBRARIES}
   -ltbb
+  details
   test
+  precomp
+  stitch
 )
 add_dependencies(image_testing stitcher_generate_messages_cpp)

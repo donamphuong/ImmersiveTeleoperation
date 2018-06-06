@@ -6,7 +6,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/stitching.hpp>
 #include <string>
-#include "stitch.cpp"
+#include "headers/stitch.hpp"
 #include <tbb/tbb.h>
 #include <opencv2/opencv.hpp>
 
@@ -96,7 +96,7 @@ void getUndistortMap() {
 
   for (int cam = 0; cam < numImage; cam++) {
     CalibrationDetails cal = calibrations[cam];
-    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, I, Mat(), image_size, CV_16SC2, undistortMap1[cam], undistortMap2[cam]);
+    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, I, calibrations[0].camera_matrix, image_size, CV_16SC2, undistortMap1[cam], undistortMap2[cam]);
   }
 }
 
@@ -115,10 +115,9 @@ int run() {
   for (int video_source = 1; video_source < numImage + 1; video_source++) {
     cap[video_source-1].open(video_source);
     cap[video_source-1].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
-    cap[video_source-1].set(CAP_PROP_FRAME_WIDTH,1920);
-    cap[video_source-1].set(CAP_PROP_FRAME_HEIGHT,1080);
-    cap[video_source-1].set(CAP_PROP_AUTOFOCUS,true);
-
+    cap[video_source-1].set(CAP_PROP_FRAME_WIDTH, 1920);
+    cap[video_source-1].set(CAP_PROP_FRAME_HEIGHT, 1080);
+    cap[video_source-1].set(CAP_PROP_AUTOFOCUS, true);
 
     //Check if video device can be opened with the given index
     if (!cap[video_source-1].isOpened()) {
@@ -139,24 +138,10 @@ int run() {
     map<int, Mat> imagesMap;
 
     double saveDuration = 0;
-    #ifdef NO_PARALLEL
-      for (int i = 0; i < numImage; i++) {
-        save_frame(cap[i], images, i);
-      }
-      cout << "Total reading and undistorting image " << saveDuration << endl;
-    # endif
-
-    # ifdef PARALLEL
-      clock_t startLoop = clock();
-      parallel_for_(Range(0, numImage), SaveFrame(cap, imagesMap));
-      cout << "Total save and undistort time: " << (clock() - startLoop) / (double) CLOCKS_PER_SEC << endl;
-
-      startLoop = clock();
-      for (map<int, Mat>::iterator itr = imagesMap.begin(); itr != imagesMap.end(); itr++) {
-        images[itr->first] = itr->second;
-      }
-      cout << "Conversion time: " << (clock() - startLoop) / (double) CLOCKS_PER_SEC << endl;
-    #endif
+    for (int i = 0; i < numImage; i++) {
+      save_frame(cap[i], images, i);
+    }
+    cout << "Total reading and undistorting image " << saveDuration << endl;
 
     clock_t startStitch = clock();
     Mat stitched;
@@ -183,7 +168,7 @@ void save_frame(VideoCapture cap, std::vector<Mat >&images, int cam) {
   double duration;
 
   start = clock();
-  cap.read(frame);
+  cap >> frame;
   cout << "Saving time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
   //Check if the grabbed frame is actually full with some content
   if (!frame.empty()) {
@@ -192,15 +177,13 @@ void save_frame(VideoCapture cap, std::vector<Mat >&images, int cam) {
     start = clock();
     remap(frame, corrected, undistortMap1[cam], undistortMap2[cam], INTER_LINEAR, BORDER_CONSTANT);
 
-    // #ifdef DEBUG
+    #ifdef DEBUG
       duration = (-start + clock()) / (double) CLOCKS_PER_SEC;
       cout << "Undistorting: " << duration << endl;
-    // #endif
+    #endif
 
     images[cam] = (corrected);
     frame.release();
-    // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
-    // pub.publish(msg);
   }
 }
 

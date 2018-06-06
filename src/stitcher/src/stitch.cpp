@@ -1,10 +1,4 @@
-#include "precomp.cpp"
-#include <tbb/tbb.h>
-#include <tbb/task_group.h>
-#include <tbb/parallel_invoke.h>
-
-#define DEBUG
-const float WEIGHT_EPS = 1e-5f;
+#include "headers/stitch.hpp"
 
 void place_images(int img_idx, Mat &img_warped_s) {
   int dx = composedCorners[img_idx].x - dst_roi.x;

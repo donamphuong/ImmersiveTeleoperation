@@ -1,3 +1,6 @@
+#ifndef PRECOMP_HPP_
+#define PRECOMP_HPP_
+
 #include <iostream>
 #include <cstdio>
 #include <ctime>
@@ -7,7 +10,7 @@
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
-#include "../details.cpp"
+#include "details.hpp"
 
 using namespace std;
 using namespace cv;
@@ -33,3 +36,5 @@ vector<UMat> weight_maps(numImage);
 
 void buildComposedMaps();
 void precomp();
+
+#endif
