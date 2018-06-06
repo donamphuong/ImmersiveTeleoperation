@@ -83,7 +83,7 @@ void stitch(vector<Mat> &full_images, Mat &result) {
     remap(img, img_warped, composedImageUXMap[img_idx], composedImageUYMap[img_idx], INTER_LINEAR, BORDER_REFLECT);
 
     img_warped.convertTo(img_warped_s, CV_16S);
-   
+
     // Blend the current image
     #ifdef DEBUG
       startWarp = clock();
@@ -113,7 +113,7 @@ void stitch(vector<Mat> &full_images, Mat &result) {
 
   normalize_blended_image();
   compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
-  
+
   UMat mask;
   compare(dst_mask, 0, mask, CMP_EQ);
   dst.setTo(Scalar::all(0), mask);
