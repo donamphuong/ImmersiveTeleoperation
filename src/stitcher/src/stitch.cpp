@@ -11,51 +11,48 @@ void place_images(int img_idx, Mat &img_warped_s) {
   int dy = composedCorners[img_idx].y - dst_roi.y;
 
   for (int y = 0; y < img_warped_s.rows; ++y) {
-      const Point3_<short> *src_row = img_warped_s.ptr<Point3_<short> >(y);
-      Point3_<short> *dst_row = dst.ptr<Point3_<short> >(dy + y);
-      const uchar *mask_row = composed_warped_masks[img_idx].ptr<uchar>(y);
-      uchar *dst_mask_row = dst_mask.ptr<uchar>(dy + y);
+    const Point3_<short> *src_row = img_warped_s.ptr<Point3_<short> >(y);
+    Point3_<short> *dst_row = dst.ptr<Point3_<short> >(dy + y);
+    const uchar *mask_row = composed_warped_masks[img_idx].ptr<uchar>(y);
+    uchar *dst_mask_row = dst_mask.ptr<uchar>(dy + y);
 
-      for (int x = 0; x < img_warped_s.cols; ++x)
-      {
-          if (mask_row[x])
-              dst_row[dx + x] = src_row[x];
-          dst_mask_row[dx + x] |= mask_row[x];
-      }
+    for (int x = 0; x < img_warped_s.cols; ++x) {
+        if (mask_row[x])
+            dst_row[dx + x] = src_row[x];
+        dst_mask_row[dx + x] |= mask_row[x];
     }
+  }
 }
 
 void feather_blend(int img_idx, Mat &img_warped_s, Mat &weight_map) {
   int dx = composedCorners[img_idx].x - dst_roi.x;
   int dy = composedCorners[img_idx].y - dst_roi.y;
 
-  for (int y = 0; y < img_warped_s.rows; ++y)
-  {
-      const Point3_<short>* src_row = img_warped_s.ptr<Point3_<short> >(y);
-      Point3_<short>* dst_row = dst.ptr<Point3_<short> >(dy + y);
-      const float* weight_row = weight_map.ptr<float>(y);
-      float* dst_weight_row = dst_weight_map.ptr<float>(dy + y);
+  for (int y = 0; y < img_warped_s.rows; ++y) {
+    const Point3_<short>* src_row = img_warped_s.ptr<Point3_<short> >(y);
+    Point3_<short>* dst_row = dst.ptr<Point3_<short> >(dy + y);
+    const float* weight_row = weight_map.ptr<float>(y);
+    float* dst_weight_row = dst_weight_map.ptr<float>(dy + y);
 
-      for (int x = 0; x < img_warped_s.cols; ++x)
-      {
-          dst_row[dx + x].x += static_cast<short>(src_row[x].x * weight_row[x]);
-          dst_row[dx + x].y += static_cast<short>(src_row[x].y * weight_row[x]);
-          dst_row[dx + x].z += static_cast<short>(src_row[x].z * weight_row[x]);
-          dst_weight_row[dx + x] += weight_row[x];
-      }
+    for (int x = 0; x < img_warped_s.cols; ++x) {
+        dst_row[dx + x].x += static_cast<short>(src_row[x].x * weight_row[x]);
+        dst_row[dx + x].y += static_cast<short>(src_row[x].y * weight_row[x]);
+        dst_row[dx + x].z += static_cast<short>(src_row[x].z * weight_row[x]);
+        dst_weight_row[dx + x] += weight_row[x];
+    }
   }
 }
 
 void normalize_blended_image() {
   for (int y = 0; y < dst.rows; ++y) {
-      Point3_<short> *row = dst.ptr<Point3_<short> >(y);
-      const float *weight_row = dst_weight_map.ptr<float>(y);
+    Point3_<short> *row = dst.ptr<Point3_<short> >(y);
+    const float *weight_row = dst_weight_map.ptr<float>(y);
 
-      for (int x = 0; x < dst.cols; ++x) {
-          row[x].x = static_cast<short>(row[x].x / (weight_row[x] + WEIGHT_EPS));
-          row[x].y = static_cast<short>(row[x].y / (weight_row[x] + WEIGHT_EPS));
-          row[x].z = static_cast<short>(row[x].z / (weight_row[x] + WEIGHT_EPS));
-      }
+    for (int x = 0; x < dst.cols; ++x) {
+      row[x].x = static_cast<short>(row[x].x / (weight_row[x] + WEIGHT_EPS));
+      row[x].y = static_cast<short>(row[x].y / (weight_row[x] + WEIGHT_EPS));
+      row[x].z = static_cast<short>(row[x].z / (weight_row[x] + WEIGHT_EPS));
+    }
   }
 }
 
@@ -70,10 +67,8 @@ void stitch(vector<Mat> &full_images, Mat &result) {
     start = clock();
   #endif
 
-  // //build another canvas when the first image in the panorama is inputted
-  // blender->prepare(composedCorners, updatedSizes);
-
-  //Reset the visibility of the canvas
+  //Reset the visibility of the canvas and the weight map to be zero
+  //a blank canvas should be initialised when images need to be stitched
   dst.setTo(Scalar::all(0));
   dst_mask.setTo(Scalar::all(0));
   dst_weight_map.setTo(0);
@@ -101,9 +96,6 @@ void stitch(vector<Mat> &full_images, Mat &result) {
     #endif
 
     float sharpness = 0.02f;
-    // Mat weight_map;
-    // createWeightMap(composed_warped_masks[img_idx], sharpness, weight_map);
-
     feather_blend(img_idx, img_warped_s, maps[img_idx]);
     // place_images(img_idx, img_warped_s);
 
@@ -111,6 +103,7 @@ void stitch(vector<Mat> &full_images, Mat &result) {
       warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
     #endif
   }
+
   img.release();
   img_warped.release();
   img_warped_s.release();

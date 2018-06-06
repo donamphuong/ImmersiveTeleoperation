@@ -75,10 +75,10 @@ Mat homography2Images(Mat im1, Mat im2) {
   img1Gray.release();
   img2Gray.release();
 
-  Mat imMatches;
-  drawMatches(im1, keypoints1_res, im2, keypoints2_res, goodMatches, imMatches);
-  imshow("matches", imMatches);
-  waitKey();
+  // Mat imMatches;
+  // drawMatches(im1, keypoints1_res, im2, keypoints2_res, goodMatches, imMatches);
+  // imshow("matches", imMatches);
+  // waitKey();
   // Find homography
   Mat h = findHomography(points2, points1, RANSAC );
   return h;
@@ -133,11 +133,11 @@ int main(int argc, char** argv) {
   // getHomographyBetweenCameras(1, 2);
   // getHomographyBetweenCameras(2, 3);
   // getHomographyBetweenCameras(3, 4);
+  // getHomographyBetweenCameras(4, 5);
+  getHomographyBetweenCameras(5, 6);
 
-  // Mat h = homography2Images(imread("test12.png"), imread("test21.png"));
-  // alignImg(imread("t2.png"), imread("t1.png"), h);
+  Mat h = homography2Images(imread("test56.png"), imread("test65.png"));
+  alignImg(imread("test56.png"), imread("test65.png"), h);
 
-  homography2Images(imread("test34.png"), imread("test43.png"));
-  // alignImages(imread("t2.png"), imread("t1.png"));
   return 0;
 }

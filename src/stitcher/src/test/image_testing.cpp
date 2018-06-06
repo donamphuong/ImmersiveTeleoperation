@@ -2,7 +2,8 @@
 #include <cstdio>
 #include <ctime>
 #include <cv_bridge/cv_bridge.h>
-
+#include <thread>
+#include <vector>
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
@@ -14,11 +15,15 @@
 #include <image_transport/image_transport.h>
 #include "../details.cpp"
 #include <tbb/tbb.h>
-#include "test.h"
+#include <thread>
+#include <mutex>
+#include <queue>
+#include <atomic>
 
 using namespace std;
 using namespace cv;
 using namespace tbb;
+
 
 void turnOnVideos() {
   getCalibrationDetails();
@@ -55,52 +60,84 @@ void turnOnVideos() {
     cout << "undistort time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
     imshow("frame1", frame1);
     cv::waitKey(1);
-    undistort(frame2, corrected2, calibrations[1].camera_matrix, calibrations[1].distortion);
+    undistort(frame2, corrected2, calibrations[0].camera_matrix, calibrations[1].distortion);
     imshow("frame2", frame2);
     cv::waitKey(1);
 
   }
 }
 
-// void testCPU() {
-//   int N = 1<<20; // 1M elements
-
-//   float *x = new float[N];
-//   float *y = new float[N];
-
-//   clock_t start = clock();
-//   // initialize x and y arrays on the host
-//   for (int i = 0; i < N; i++) {
-//     x[i] = 1.0f;
-//     y[i] = 2.0f;
-//   }
-//   cout << "time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-
-//   // Run kernel on 1M elements on the CPU
-//   for (int i = 0; i < N; i++)
-//       y[i] = x[i] + y[i];
-
-//   // Free memory
-//   delete [] x;
-//   delete [] y;
-// }
-
-vector<UMat> undistortMap1(numImage);
-vector<UMat> undistortMap2(numImage);
-
-const Size image_size = Size(1920, 1080);
-
-void getUndistortMap() {
-  Mat I = Mat_<double>::eye(3,3);
-
-  for (int cam = 0; cam < numImage; cam++) {
-    CalibrationDetails cal = calibrations[cam];
-    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, I, Mat(), image_size, undistortMap1[cam].type(), undistortMap1[cam], undistortMap2[cam]);
+vector<VideoCapture*> camera_capture;
+vector<queue<Mat>*> frame_queue;
+vector<thread*> camera_thread;
+void captureFrame(int idx) {
+  VideoCapture *capture = camera_capture[idx];
+  while (true) {
+    Mat frame;
+    (*capture) >> frame;
+    frame_queue[idx]->push(frame);
+    frame.release();
+  }
+  thread *t;
+  queue<Mat> *q;
+  for (int i = 0; i < numImage; i++)
+  { 
+    //Put VideoCapture to the vector
+    camera_capture.push_back(new VideoCapture(i));
+    
+    //Make thread instance
+    t = new thread(captureFrame, this, i);
+    
+    //Put thread to the vector
+    camera_thread.push_back(t);
+    
+    //Make a queue instance
+    q = new queue<Mat>;
+    
+    //Put queue to the vector
+    frame_queue.push_back(q);
   }
 }
 
+void startMultipleCapture() {
+  VideoCapture *capture;
+  thread *t;
+  queue<Mat> *q;
+  for (int i = 0; i < numImage; i++)
+  { 
+    //Put VideoCapture to the vector
+    camera_capture.push_back(new VideoCapture(i));
+    
+    //Make thread instance
+    t = new thread(captureFrame, this, i);
+    
+    //Put thread to the vector
+    camera_thread.push_back(t);
+    
+    //Make a queue instance
+    q = new queue<Mat>;
+    
+    //Put queue to the vector
+    frame_queue.push_back(q);
+  }
+}
 
 int main(int argc, char** argv) {
-  turnOnVideos();
+  getCalibrationDetails();
+startMultipleCapture();
+  while(true) {
+    //Retrieve frames from each camera capture thread
+    for (int i = 0; i < capture_source.size(); i++)
+    {
+      Mat frame;
+      //Pop frame from queue and check if the frame is valid
+      if (cam.frame_queue[i]->try_pop(frame))
+      {
+          //Show frame on Highgui window
+          imshow(label[i], frame);
+      }
+    }
+    
+  }
 
- }
+}
