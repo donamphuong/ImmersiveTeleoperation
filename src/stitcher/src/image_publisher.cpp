@@ -10,6 +10,7 @@
 #include "headers/streamer.hpp"
 #include <tbb/tbb.h>
 #include <opencv2/opencv.hpp>
+#include <thread>
 
 #define NO_PARALLEL
 
@@ -156,7 +157,8 @@ int run() {
     if (allOpened) {
       clock_t startStitch = clock();
       Mat stitched;
-      stitch(images, stitched);
+      thread stitchThread(stitch, images);
+      // stitch(images, stitched);
       double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
       cout << "Stitching Time: " << duration << endl;
 
