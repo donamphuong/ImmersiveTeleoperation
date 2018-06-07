@@ -7,6 +7,7 @@
 #include <opencv2/stitching.hpp>
 #include <string>
 #include "headers/stitch.hpp"
+#include "headers/streamer.hpp"
 #include <tbb/tbb.h>
 #include <opencv2/opencv.hpp>
 
@@ -110,24 +111,9 @@ int run() {
   //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
   //This will buffer up to 1 message before beginning to throw away old ones
   pub = it.advertise("camera", 1);
-  cv::VideoCapture cap[numImage];
+  CameraStreamer multiCameras;
+  multiCameras.startMultiCapture();
 
-  for (int video_source = 0; video_source < numImage; video_source++) {
-    cap[video_source].open(video_source);
-    cap[video_source].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
-    cap[video_source].set(CAP_PROP_FRAME_WIDTH, 1920);
-    cap[video_source].set(CAP_PROP_FRAME_HEIGHT, 1080);
-    cap[video_source].set(CAP_PROP_AUTOFOCUS, true);
-
-    //Check if video device can be opened with the given index
-    if (!cap[video_source].isOpened()) {
-      std::cout << "Device " << std::to_string(video_source) << " cannot be opened!" << std::endl;
-      return ERROR;
-    }
-  }
-
-  namedWindow("stitched", WINDOW_NORMAL);
-  resizeWindow("stitched", 1920, 1080);
   precomp();
   calibrations.clear();
 
@@ -139,7 +125,10 @@ int run() {
 
     double saveDuration = 0;
     for (int i = 0; i < numImage; i++) {
-      save_frame(cap[i], images, i);
+      if (!multiCameras.frame_queue[i]->empty()) {
+        images[i] = multiCameras.frame_queue[i]->front();
+        multiCameras.frame_queue[i]->pop();
+      }
     }
     cout << "Total reading and undistorting image " << saveDuration << endl;
 

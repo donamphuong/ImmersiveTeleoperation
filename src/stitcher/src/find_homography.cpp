@@ -114,10 +114,11 @@ void alignImages(Mat im1, Mat im2) {
 }
 
 void getHomographyBetweenCameras(int firstCamId, int secondCamId) {
-  Mat im1 = imread("test" + to_string(firstCamId) + to_string(secondCamId) + ".png");
-  Mat im2 = imread("test" + to_string(secondCamId) + to_string(firstCamId) + ".png");
+  Mat im1 = imread("images/test" + to_string(firstCamId) + to_string(secondCamId) + ".png");
+  Mat im2 = imread("images/test" + to_string(secondCamId) + to_string(firstCamId) + ".png");
 
   Mat h = homography2Images(im1, im2);
+  cout << h << endl;
   // alignImg(im1, im2, h);
   FileStorage file("/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H" + to_string(secondCamId) + to_string(firstCamId) + ".yaml", FileStorage::WRITE);
 
@@ -129,9 +130,9 @@ int main(int argc, char** argv) {
   getCalibrationDetails();
   // getHomographyBetweenCameras(1, 2);
   // getHomographyBetweenCameras(2, 3);
-  getHomographyBetweenCameras(3, 4);
+  // getHomographyBetweenCameras(3, 4);
   getHomographyBetweenCameras(4, 5);
-  // getHomographyBetweenCameras(5, 6);
+  getHomographyBetweenCameras(5, 6);
 
   return 0;
 }
