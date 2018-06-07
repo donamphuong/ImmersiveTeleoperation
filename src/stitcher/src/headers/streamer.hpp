@@ -17,3 +17,6 @@ class CameraStreamer {
     // void stopMultiCapture();
     void captureFrame(int index);
 };
+
+vector<Mat> undistortMap1(numImage);
+vector<Mat> undistortMap2(numImage);

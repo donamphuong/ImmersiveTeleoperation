@@ -6,10 +6,9 @@ void CameraStreamer::captureFrame(int index) {
     Mat frame, corrected;
     capture->read(frame);
 
-    undistort(frame, corrected, calibrations[index].camera_matrix, calibrations[index].distortion);
+    remap(frame, corrected, undistortMap1[index], undistortMap2[index], INTER_LINEAR, BORDER_CONSTANT);
     frame_queue[index]->push(corrected);
-    // imshow(to_string(index), frame);
-    
+
     frame.release();
   }
 }
@@ -26,7 +25,7 @@ void CameraStreamer::startMultiCapture() {
     capture->set(CAP_PROP_AUTOFOCUS, true);
 
     camera_capture.push_back(capture);
-    
+
     //Check if video device can be opened with the given index
     if (!capture->isOpened()) {
       std::cout << "Camera " << std::to_string(i) << " cannot be opened!" << std::endl;

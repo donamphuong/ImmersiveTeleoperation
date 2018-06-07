@@ -15,9 +15,6 @@
 
 using namespace cv;
 
-vector<Mat> undistortMap1(numImage);
-vector<Mat> undistortMap2(numImage);
-
 image_transport::Publisher pub;
 
 int test();
@@ -114,37 +111,62 @@ int run() {
   CameraStreamer multiCameras;
   multiCameras.startMultiCapture();
 
+  // cv::VideoCapture cap[numImage];
+  //
+  //  for (int video_source = 0; video_source < numImage; video_source++) {
+  //    cap[video_source].open(video_source);
+  //    cap[video_source].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
+  //    cap[video_source].set(CAP_PROP_FRAME_WIDTH, 1920);
+  //    cap[video_source].set(CAP_PROP_FRAME_HEIGHT, 1080);
+  //    cap[video_source].set(CAP_PROP_AUTOFOCUS, true);
+  //
+  //    //Check if video device can be opened with the given index
+  //    if (!cap[video_source].isOpened()) {
+  //      std::cout << "Device " << std::to_string(video_source) << " cannot be opened!" << std::endl;
+  //      return ERROR;
+  //    }
+  //  }
+
   precomp();
   calibrations.clear();
-
+  bool allOpened = false;
 
   while (nh.ok()) {
     clock_t start = clock();
-    vector<Mat> images(numImage);
+    vector<Mat> images;
     map<int, Mat> imagesMap;
 
     double saveDuration = 0;
     for (int i = 0; i < numImage; i++) {
       if (!multiCameras.frame_queue[i]->empty()) {
-        images[i] = multiCameras.frame_queue[i]->front();
+        images.push_back(multiCameras.frame_queue[i]->front());
+        // imshow(to_string(i), images[i]);
+        // waitKey(1);
+
         multiCameras.frame_queue[i]->pop();
       }
+
+      if (images.size() == numImage) {
+        allOpened = true;
+      }
+      // save_frame(cap[i], images, i);
     }
-    cout << "Total reading and undistorting image " << saveDuration << endl;
+    cout << "Total reading and undistorting image " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
-    clock_t startStitch = clock();
-    Mat stitched;
-    stitch(images, stitched);
-    double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
-    cout << "Stitching Time: " << duration << endl;
+    if (allOpened) {
+      clock_t startStitch = clock();
+      Mat stitched;
+      stitch(images, stitched);
+      double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
+      cout << "Stitching Time: " << duration << endl;
 
-    imshow ("stitched", stitched);
-    waitKey(1);
-    cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
+      imshow ("stitched", stitched);
+      waitKey(1);
+      cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
-    pub.publish(msg);
-
+      sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
+      pub.publish(msg);
+    }
     ros::spinOnce();
     loop_rate.sleep();
   }
