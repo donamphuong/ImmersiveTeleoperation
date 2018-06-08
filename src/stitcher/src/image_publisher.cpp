@@ -130,45 +130,34 @@ int run() {
 
   precomp();
   calibrations.clear();
-  bool allOpened = false;
 
   while (nh.ok()) {
     clock_t start = clock();
-    vector<Mat> images;
+    // vector<Mat> images;
     map<int, Mat> imagesMap;
 
     double saveDuration = 0;
     for (int i = 0; i < numImage; i++) {
-      if (!multiCameras.frame_queue[i]->empty()) {
-        images.push_back(multiCameras.frame_queue[i]->front());
-        // imshow(to_string(i), images[i]);
-        // waitKey(1);
-
-        multiCameras.frame_queue[i]->pop();
-      }
-
-      if (images.size() == numImage) {
-        allOpened = true;
-      }
+      thread *t = new thread(&CameraStreamer::captureFrame, multiCameras, i);
+      // release(t);
       // save_frame(cap[i], images, i);
+      t->join();
     }
     cout << "Total reading and undistorting image " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
+    
+    clock_t startStitch = clock();
+    Mat stitched;
+    stitch(images, stitched);
+    double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
+    cout << "Stitching Time: " << duration << endl;
 
-    if (allOpened) {
-      clock_t startStitch = clock();
-      Mat stitched;
-      thread stitchThread(stitch, images);
-      // stitch(images, stitched);
-      double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
-      cout << "Stitching Time: " << duration << endl;
+    imshow ("stitched", stitched);
+    waitKey(1);
+    cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
-      imshow ("stitched", stitched);
-      waitKey(1);
-      cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-
-      sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
-      pub.publish(msg);
-    }
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
+    pub.publish(msg);
+    
     ros::spinOnce();
     loop_rate.sleep();
   }

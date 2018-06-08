@@ -18,5 +18,6 @@ class CameraStreamer {
     void captureFrame(int index);
 };
 
+vector<Mat> images(numImage);
 vector<Mat> undistortMap1(numImage);
 vector<Mat> undistortMap2(numImage);
