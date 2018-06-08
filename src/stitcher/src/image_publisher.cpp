@@ -41,7 +41,7 @@ int test() {
   precomp();
   start = clock();
   Mat stitched;
-  stitch(images, stitched);
+  // stitch(images, stitched);
 
   duration = (clock() - start) / (double) CLOCKS_PER_SEC;
   cout << "printf: " << duration << "\n";
@@ -53,42 +53,6 @@ int test() {
 
   return 0;
 }
-
-class SaveFrame : public cv::ParallelLoopBody {
-  private:
-    VideoCapture *cap;
-    map<int, Mat> &images;
-
-  public:
-    SaveFrame(VideoCapture *inputCap, map<int, Mat> &inputImages)
-        :cap(inputCap), images(inputImages) {}
-
-    virtual void operator()(const cv::Range& range) const {
-      for(int i = range.start; i < range.end; i++) {
-        Mat frame;
-        clock_t start;
-        double duration;
-        cap[i] >> frame;
-        //Check if the grabbed frame is actually full with some content
-        if (!frame.empty()) {
-          Mat corrected = Mat(image_size.width, image_size.height, CV_8UC3);
-
-          start = clock();
-          remap(frame, corrected, undistortMap1[i], undistortMap2[i], INTER_LINEAR, BORDER_CONSTANT);
-
-          // #ifdef DEBUG
-            duration = (-start + clock()) / (double) CLOCKS_PER_SEC;
-            cout << "Undistorting: " << duration << endl;
-          // #endif
-
-          images.insert(pair <int, Mat>(i, corrected));
-          frame.release();
-          // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
-          // pub.publish(msg);
-        }
-      }
-    }
-};
 
 int run() {
   ros::NodeHandle nh;
@@ -106,75 +70,43 @@ int run() {
   multiCameras.startMultiCapture();
 
   calibrations.clear();
-  bool allOpened = false;
 
   while (nh.ok()) {
     clock_t start = clock();
-    // if (multiCameras.isReady) {
-      clock_t startStitch = clock();
-      Mat stitched;
-      //Reset the visibility of the canvas and the weight map to be zero
-      //a blank canvas should be initialised when images need to be stitched
-      dst.setTo(Scalar::all(0));
-      dst_mask.setTo(Scalar::all(0));
-      dst_weight_map.setTo(0);
+    clock_t startStitch = clock();
+    Mat stitched;
 
-      double saveDuration = 0;
-      for (int i = 0; i < numImage; i++) {
-       thread *t = new thread(&CameraStreamer::captureFrame, multiCameras, i);
-       t->join();
-        // save_frame(cap[i], images, i);
-      }
-      cout << "Total reading and undistorting image " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-
-      normalize_blended_image();
-      compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
-
-      UMat mask;
-      compare(dst_mask, 0, mask, CMP_EQ);
-      dst.setTo(Scalar::all(0), mask);
-      mask.release();
-      dst.convertTo(stitched, CV_8U);
-
-      double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
-      cout << "Stitching Time: " << duration << endl;
-
-      imshow ("stitched", stitched);
-      waitKey(1);
-      cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-
-      sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
-      pub.publish(msg);
+    clearCanvas();
+    double saveDuration = 0;
+    vector<thread*> threads;
+    //send out a thread to read, undistort and place video frames in final canvas for each camera
+    for (int i = 0; i < numImage; i++) {
+      thread *t = new thread(&CameraStreamer::captureFrame, multiCameras, i);
+      threads.push_back(t);
+      t->join();
     }
-    ros::spinOnce();
-    loop_rate.sleep();
-  // }
-}
 
-//Show contents of cameras after calibrations
-void save_frame(VideoCapture cap, std::vector<Mat >&images, int cam) {
-  Mat frame;
-  clock_t start;
-  double duration;
+    for (int i = 0; i < numImage; i++) {
+      delete(threads[i]);
+    }
 
-  start = clock();
-  cap >> frame;
-  cout << "Saving time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-  //Check if the grabbed frame is actually full with some content
-  if (!frame.empty()) {
-    Mat corrected /*= Mat(image_size.width, image_size.height, CV_8UC3)*/;
+    // cout << "Total reading and undistorting image " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
-    start = clock();
-    remap(frame, corrected, undistortMap1[cam], undistortMap2[cam], INTER_LINEAR, BORDER_CONSTANT);
+    assembleCanvas();
+    dst.convertTo(stitched, CV_8U);
 
-    #ifdef DEBUG
-      duration = (-start + clock()) / (double) CLOCKS_PER_SEC;
-      cout << "Undistorting: " << duration << endl;
-    #endif
+    double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
+    // cout << "Stitching Time: " << duration << endl;
 
-    images[cam] = (corrected);
-    frame.release();
+    imshow ("stitched", stitched);
+    waitKey(1);
+    cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
+
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
+    pub.publish(msg);
   }
+  ros::spinOnce();
+  loop_rate.sleep();
 }
 
 /*

@@ -23,11 +23,12 @@ void CameraStreamer::captureFrame(int index) {
     float sharpness = 0.02f;
 
     feather_blend(index, img_warped_s, maps[index]);
+    // place_images(index, img_warped_s);
 
     // frame_queue[index]->push(corrected);
     frame.release();
     double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-    cout << "Capturing video frame from camera " << index << " takes: " << duration << endl;
+    // cout << "Capturing video frame from camera " << index << " takes: " << duration << endl;
   // }
 }
 
