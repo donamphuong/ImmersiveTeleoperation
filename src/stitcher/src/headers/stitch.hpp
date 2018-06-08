@@ -7,7 +7,7 @@
 #include <tbb/parallel_invoke.h>
 
 
-#define DEBUG
+// #define DEBUG
 const float WEIGHT_EPS = 1e-5f;
 
 void place_images(int img_idx, Mat &img_warped_s) ;

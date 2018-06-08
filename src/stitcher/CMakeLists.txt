@@ -83,6 +83,18 @@ target_link_libraries(image_publisher
 )
 add_dependencies(image_publisher stitcher_generate_messages_cpp)
 
+add_executable(graph src/graph_plotting.cpp)
+target_link_libraries(graph
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES}
+  stitch
+  details
+  streamer
+  precomp
+)
+add_dependencies(graph stitcher_generate_messages_cpp)
+
+
 add_executable(image_processing src/test/image_processing.cpp)
 target_link_libraries(image_processing
 	${catkin_LIBRARIES}

@@ -18,7 +18,7 @@ void CameraStreamer::startMultiCapture() {
   thread *t;
   queue<Mat> *q;
   for (int i = 0; i < numImage; i++) {
-    capture = new VideoCapture(i+1);
+    capture = new VideoCapture(i);
     capture->set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
     capture->set(CAP_PROP_FRAME_WIDTH, 1920);
     capture->set(CAP_PROP_FRAME_HEIGHT, 1080);
