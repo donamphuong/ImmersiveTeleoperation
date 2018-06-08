@@ -66,6 +66,7 @@ set(
 add_library(details src/details.cpp)
 add_library(stitch src/stitch.cpp)
 add_library(precomp src/precomp.cpp )
+#add_library(streamer src/streamer.cpp)
 #cuda_add_library(test src/test/test.cu)
 
 target_link_libraries(precomp
@@ -77,9 +78,22 @@ target_link_libraries(image_publisher
 	${OpenCV_LIBRARIES}
   stitch
   details
+  #streamer
   precomp
 )
 add_dependencies(image_publisher stitcher_generate_messages_cpp)
+
+add_executable(graph src/graph_plotting.cpp)
+target_link_libraries(graph
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES}
+  stitch
+  details
+  #streamer
+  precomp
+)
+add_dependencies(graph stitcher_generate_messages_cpp)
+
 
 add_executable(image_processing src/test/image_processing.cpp)
 target_link_libraries(image_processing
