@@ -113,7 +113,7 @@ int run() {
   cv::VideoCapture cap[numImage];
 
   for (int video_source = 0; video_source < numImage; video_source++) {
-    cap[video_source].open(video_source+1);
+    cap[video_source].open(video_source);
     cap[video_source].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
     cap[video_source].set(CAP_PROP_FRAME_WIDTH, 1920);
     cap[video_source].set(CAP_PROP_FRAME_HEIGHT, 1080);

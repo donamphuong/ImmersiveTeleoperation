@@ -97,9 +97,6 @@ void stitch(vector<Mat> &full_images, Mat &result) {
       warpTime += (clock() - startWarp) / (double) CLOCKS_PER_SEC;
     #endif
     img_warped.convertTo(img_warped_s, CV_16S);
-
-    // place_image(img_idx, img_warped_s);
-    feather_blend(img_idx, img_warped_s, maps);
   }
 
   img.release();

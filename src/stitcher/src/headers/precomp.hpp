@@ -24,6 +24,7 @@ vector<Rect> composedImageROI(numImage);
 
 vector<Point> composedCorners(numImage);
 vector<Mat> composed_warped_masks(numImage);
+vector<Size> updatedSizes(numImage);
 
 Ptr<WarperCreator> warper_creator;
 Ptr<RotationWarper> warper;

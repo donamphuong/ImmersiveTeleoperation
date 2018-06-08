@@ -8,8 +8,6 @@
 
 
 #define DEBUG
-const float WEIGHT_EPS = 1e-5f;
-
 void place_images(int img_idx, Mat &img_warped_s) ;
 
 void feather_blend(int img_idx, Mat &img_warped_s, Mat &weight_map) ;

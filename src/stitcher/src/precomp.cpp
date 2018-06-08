@@ -1,6 +1,6 @@
 #include "headers/precomp.hpp"
 
-void buildComposedMaps(vector<Size> &updated_sizes) {
+void buildComposedMaps() {
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
       calibrations[0].camera_matrix.convertTo(K, CV_32F);
@@ -26,7 +26,7 @@ void buildComposedMaps(vector<Size> &updated_sizes) {
   }
 }
 
-void initComposedCanvas(vector<Size> &updated_sizes) {
+void initComposedCanvas() {
   // Update corners and sizes
   for (int i = 0; i < numImage; ++i) {
       // Update corner and size
@@ -35,11 +35,11 @@ void initComposedCanvas(vector<Size> &updated_sizes) {
       calibrations[startCamera - 1 + i].rectification.convertTo(R, CV_32F);
       Rect roi = warper->warpRoi(image_size, K, R);
       composedCorners[i] = roi.tl();
-      updated_sizes[i] = roi.size();
+      updatedSizes[i] = roi.size();
   }
 
   //Preparing composition result
-  dst_roi = resultRoi(composedCorners, updated_sizes);
+  dst_roi = resultRoi(composedCorners, updatedSizes);
   dst.create(dst_roi.size(), CV_16SC3);
   dst_mask.create(dst_roi.size(), CV_8U);
 
@@ -48,9 +48,9 @@ void initComposedCanvas(vector<Size> &updated_sizes) {
 }
 
 void initHelperTools() {
-  double work_megapix = 0.6;
-  double seam_megapix = 0.1;
-  double work_scale = 0.5;
+  double work_megapix = 0.08;
+  double seam_megapix = 0.08;
+  double work_scale = 0.5f;
   double seam_scale = 1;
   double seam_work_aspect = 1;
   float warped_image_scale;
