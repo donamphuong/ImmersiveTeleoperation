@@ -7,89 +7,23 @@
 #include <opencv2/stitching.hpp>
 #include <string>
 #include "headers/stitch.hpp"
+// #include "headers/streamer.hpp"
 #include <tbb/tbb.h>
 #include <opencv2/opencv.hpp>
+#include <thread>
 
 #define NO_PARALLEL
 
 using namespace cv;
 
+image_transport::Publisher pub;
 vector<Mat> undistortMap1(numImage);
 vector<Mat> undistortMap2(numImage);
-
-image_transport::Publisher pub;
 
 int test();
 void getUndistortMap();
 int run();
 void save_frame(VideoCapture, std::vector<Mat>&, int);
-
-int test() {
-  clock_t start;
-  double duration;
-  vector<Mat> images;
-
-  for (int i = 1; i < numImage + 1; i++) {
-    string filename = "test" + to_string(i) + ".png";
-    Mat im = imread(filename);
-    if (im.empty()) {
-      cout << "File " << filename << " does not exist" << endl;
-      return ERROR;
-    }
-    images.push_back(im);
-  }
-
-  precomp();
-  start = clock();
-  Mat stitched;
-  stitch(images, stitched);
-
-  duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-  cout << "printf: " << duration << "\n";
-
-  namedWindow("stitched", WINDOW_NORMAL);
-  resizeWindow("stitched", 1024, 600);
-  imshow ("stitched", stitched);
-  waitKey();
-
-  return 0;
-}
-
-class SaveFrame : public cv::ParallelLoopBody {
-  private:
-    VideoCapture *cap;
-    map<int, Mat> &images;
-
-  public:
-    SaveFrame(VideoCapture *inputCap, map<int, Mat> &inputImages)
-        :cap(inputCap), images(inputImages) {}
-
-    virtual void operator()(const cv::Range& range) const {
-      for(int i = range.start; i < range.end; i++) {
-        Mat frame;
-        clock_t start;
-        double duration;
-        cap[i] >> frame;
-        //Check if the grabbed frame is actually full with some content
-        if (!frame.empty()) {
-          Mat corrected = Mat(image_size.width, image_size.height, CV_8UC3);
-
-          start = clock();
-          remap(frame, corrected, undistortMap1[i], undistortMap2[i], INTER_LINEAR, BORDER_CONSTANT);
-
-          // #ifdef DEBUG
-            duration = (-start + clock()) / (double) CLOCKS_PER_SEC;
-            cout << "Undistorting: " << duration << endl;
-          // #endif
-
-          images.insert(pair <int, Mat>(i, corrected));
-          frame.release();
-          // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
-          // pub.publish(msg);
-        }
-      }
-    }
-};
 
 void getUndistortMap() {
   Mat I = Mat_<double>::eye(3,3);
@@ -105,7 +39,7 @@ int run() {
   image_transport::ImageTransport it(nh);
 
   ros::Rate loop_rate(20);
-  std::cout << "Image Publisher running" << std::endl;
+  ROS_INFO("Image Publisher running");
 
   //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
   //This will buffer up to 1 message before beginning to throw away old ones
@@ -113,7 +47,7 @@ int run() {
   cv::VideoCapture cap[numImage];
 
   for (int video_source = 0; video_source < numImage; video_source++) {
-    cap[video_source].open(video_source+1);
+    cap[video_source].open(video_source);
     cap[video_source].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
     cap[video_source].set(CAP_PROP_FRAME_WIDTH, 1920);
     cap[video_source].set(CAP_PROP_FRAME_HEIGHT, 1080);
@@ -126,13 +60,12 @@ int run() {
     }
   }
 
-  namedWindow("stitched", WINDOW_NORMAL);
-  resizeWindow("stitched", 1920, 1080);
   precomp();
   calibrations.clear();
+  string results = "";
 
-
-  while (nh.ok()) {
+  for (int iter = 0; iter < 100; iter++) {
+  //while (nh.ok()) {
     clock_t start = clock();
     vector<Mat> images(numImage);
     map<int, Mat> imagesMap;
@@ -141,24 +74,25 @@ int run() {
     for (int i = 0; i < numImage; i++) {
       save_frame(cap[i], images, i);
     }
-    cout << "Total reading and undistorting image " << saveDuration << endl;
+    // cout << "Total reading and undistorting image " << saveDuration << endl;
 
     clock_t startStitch = clock();
     Mat stitched;
     stitch(images, stitched);
     double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
-    cout << "Stitching Time: " << duration << endl;
+    // cout << "Stitching Time: " << duration << endl;
 
-    imshow ("stitched", stitched);
-    waitKey(1);
-    cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
-    pub.publish(msg);
+    results += to_string((clock() - start) / (double) CLOCKS_PER_SEC) + "\t";
 
     ros::spinOnce();
     loop_rate.sleep();
   }
+  results += "\n";
+
+  ofstream myfile;
+  myfile.open("no_parallel.txt");
+  myfile << results;
+  myfile.close();
 }
 
 //Show contents of cameras after calibrations

@@ -3,8 +3,8 @@
 void buildComposedMaps(vector<Size> &updated_sizes) {
   for (int i = 0; i < numImage; ++i) {
       Mat_<float> K, R;
-      calibrations[i].camera_matrix.convertTo(K, CV_32F);
-      calibrations[i].rectification.convertTo(R, CV_32F);
+      calibrations[0].camera_matrix.convertTo(K, CV_32F);
+      calibrations[startCamera - 1 + i].rectification.convertTo(R, CV_32F);
 
       composedImageROI[i] = warper->buildMaps(image_size, K, R, composedImageUXMap[i], composedImageUYMap[i]);
 
@@ -31,8 +31,8 @@ void initComposedCanvas(vector<Size> &updated_sizes) {
   for (int i = 0; i < numImage; ++i) {
       // Update corner and size
       Mat K, R;
-      calibrations[i].camera_matrix.convertTo(K, CV_32F);
-      calibrations[i].rectification.convertTo(R, CV_32F);
+      calibrations[0].camera_matrix.convertTo(K, CV_32F);
+      calibrations[startCamera - 1 + i].rectification.convertTo(R, CV_32F);
       Rect roi = warper->warpRoi(image_size, K, R);
       composedCorners[i] = roi.tl();
       updated_sizes[i] = roi.size();
@@ -50,6 +50,10 @@ void initComposedCanvas(vector<Size> &updated_sizes) {
 void initHelperTools() {
   double work_megapix = 0.6;
   double seam_megapix = 0.1;
+  double work_scale = 0.5;
+  double seam_scale = 1;
+  double seam_work_aspect = 1;
+  float warped_image_scale;
 
   work_scale = min(1.0, sqrt(work_megapix * 1e6 / image_size.area()));
   seam_scale = min(1.0, sqrt(seam_megapix * 1e6 / image_size.area()));
@@ -59,7 +63,7 @@ void initHelperTools() {
   warped_image_scale = calibrations[0].camera_matrix.at<double>(0, 0);
 
   // Warp images and their masks
-  warper_creator = makePtr<cv::SphericalWarperGpu>();
+  warper_creator = makePtr<cv::SphericalWarper>();
   if (!warper_creator) {
       cout << "Can't create cylindrical warper" << endl;
       exit(ERROR);
@@ -74,15 +78,16 @@ void precomp() {
   }
 
   initHelperTools();
+  buildComposedMaps();
+  initComposedCanvas();
+  dst_weight_map.create(dst_roi.size(), CV_32F);
 
-  vector<Size> updated_sizes(numImage);
-
-  buildComposedMaps(updated_sizes);
-  initComposedCanvas(updated_sizes);
-
-  vector<Mat> maps(numImage);
+  //Build weight map that is used in feather blending
+  float sharpness = 0.02f;
   for (int i = 0; i < numImage; i++) {
-    maps[i] = weight_maps[i].getMat(ACCESS_READ);
+    createWeightMap(composed_warped_masks[i], sharpness, weight_maps[i]);
   }
 
+  warper.release();
+  warper_creator.release();
 }

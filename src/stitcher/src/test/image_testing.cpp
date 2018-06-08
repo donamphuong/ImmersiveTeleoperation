@@ -1,6 +1,9 @@
 #include <iostream>
 #include <cstdio>
 #include <ctime>
+#include <cv_bridge/cv_bridge.h>
+#include <thread>
+#include <vector>
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
@@ -8,20 +11,28 @@
 #include <opencv2/stitching.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include "../details.cpp"
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
+#include "../headers/details.hpp"
+#include "../headers/stitch.hpp"
+#include "../headers/precomp.hpp"
 #include <tbb/tbb.h>
-#include "test.h"
+#include <thread>
+#include <mutex>
+#include <queue>
+#include <atomic>
 
 using namespace std;
 using namespace cv;
 using namespace tbb;
 
+
 void turnOnVideos() {
   getCalibrationDetails();
   VideoCapture cap1;
-  cap1.open(1);
+  cap1.open(startCamera-1);
   VideoCapture cap2;
-  cap2.open(2);
+  cap2.open(startCamera);
 
   cap1.set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
   cap1.set(CAP_PROP_FRAME_WIDTH,1920);
@@ -46,61 +57,62 @@ void turnOnVideos() {
 
     Mat corrected1, corrected2;
 
-    undistort(frame1, corrected1, calibrations[0].camera_matrix, calibrations[0].distortion);
+    clock_t start = clock();
+    undistort(frame1, corrected1, calibrations[startCamera-1].camera_matrix, calibrations[startCamera-1].distortion, calibrations[0].camera_matrix);
+    cout << "undistort time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
     imshow("frame1", frame1);
     cv::waitKey(1);
-    undistort(frame2, corrected2, calibrations[1].camera_matrix, calibrations[1].distortion);
+    undistort(frame2, corrected2, calibrations[startCamera].camera_matrix, calibrations[startCamera].distortion, calibrations[0].camera_matrix);
     imshow("frame2", frame2);
     cv::waitKey(1);
 
   }
 }
 
-// void testCPU(pixel *src, 
-//   //             pixel *dst, 
-//   //             const int pixelGroupSizeX, 
-//   //             const int pixelGroupSizeY) {
-//   //  // images area in the final stitched image
-//   // Mat imLeftArea = aligned(Rect(0, 0, im1.cols, im1.rows));
-//   // Mat imRightArea = aligned(Rect(im1.cols, 0, im2.cols, im2.rows));
+void testStitch() {
+  getCalibrationDetails();
+  precomp();
+  VideoCapture cap1;
+  cap1.open(1);
+  VideoCapture cap2;
+  cap2.open(2);
 
-//   // Mat roiImgLeft = im1(Rect(0, 0, im1.cols, im2.rows));
-//   // Mat roiImgRight = im2Warped(Rect(im1.cols, 0, im2.cols, im2.rows));
+  cap1.set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
+  cap1.set(CAP_PROP_FRAME_WIDTH,1920);
+  cap1.set(CAP_PROP_FRAME_HEIGHT,1080);
+  cap1.set(CAP_PROP_AUTOFOCUS,true);
 
-//   // roiImgLeft.copyTo(imLeftArea);
-//   // roiImgRight.copyTo(imRightArea);
+  cap2.set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
+  cap2.set(CAP_PROP_FRAME_WIDTH,1920);
+  cap2.set(CAP_PROP_FRAME_HEIGHT,1080);
+  cap2.set(CAP_PROP_AUTOFOCUS,true);
 
-//   // for (int x = 0; x < pixelGroupSizeX; x++) {
-//   //   for (int y = 0; y < pixelGroupSizeY; y++) {
-//   //     if
-//   //   }
-//   // }
+  while (true) {
+    vector<Mat> images;
+    Mat frame1;
+    cap1 >> frame1;
+    Mat frame2;
+    cap2 >> frame2;
 
-// }
+    Mat corrected1, corrected2;
 
-void processUsingOpenCvCpu() {
-	//Read input image from the disk
-	Mat input = imread("test34.png");
-	if(input.empty())
-	{
-	        std::cout<<"Image Not Found: "<< "test34.png" << std::endl;
-		// return;
-	}
- 
-	//Create output image
-	Mat output;
- 
-	clock_t start = clock();
+    clock_t start = clock();
+    undistort(frame1, corrected1, calibrations[startCamera-1].camera_matrix, calibrations[startCamera-1].distortion, calibrations[0].camera_matrix);
+    cout << "undistort time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
+    images.push_back(frame1);
+    undistort(frame2, corrected2, calibrations[startCamera].camera_matrix, calibrations[startCamera].distortion, calibrations[0].camera_matrix);
+    images.push_back(frame2);
 
-	resize(input, output, Size(), .25, 0.25, INTER_AREA); // downscale 4x on both x and y
- 
-	double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
-	cout << "OpenCv Cpu code ran in:" << duration << " secs" << endl;
- }
+    Mat result;
+    stitch(images, result);
+    imshow("result", result);
+    waitKey(1);
+
+  }
+}
+
 
 int main(int argc, char** argv) {
-  clock_t start = clock();
-  processUsingOpenCvCpu();
-  cout << "Total time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-  return 0;
- }
+  turnOnVideos();
+  // testStitch();
+}

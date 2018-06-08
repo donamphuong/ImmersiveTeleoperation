@@ -7,16 +7,12 @@
 #include <math.h>
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/cudaimgproc.hpp>
-#include <opencv2/cudafeatures2d.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/stitching.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/xfeatures2d.hpp>
-#include <opencv2/cudaimgproc.hpp>
 #include <opencv2/stitching/detail/warpers.hpp>
 #include "details.cpp"
 
@@ -75,10 +71,10 @@ Mat homography2Images(Mat im1, Mat im2) {
   img1Gray.release();
   img2Gray.release();
 
-  Mat imMatches;
-  drawMatches(im1, keypoints1_res, im2, keypoints2_res, goodMatches, imMatches);
-  imshow("matches", imMatches);
-  waitKey();
+  // Mat imMatches;
+  // drawMatches(im1, keypoints1_res, im2, keypoints2_res, goodMatches, imMatches);
+  // imshow("matches", imMatches);
+  // waitKey();
   // Find homography
   Mat h = findHomography(points2, points1, RANSAC );
   return h;
@@ -122,6 +118,7 @@ void getHomographyBetweenCameras(int firstCamId, int secondCamId) {
   Mat im2 = imread("test" + to_string(secondCamId) + to_string(firstCamId) + ".png");
 
   Mat h = homography2Images(im1, im2);
+  // alignImg(im1, im2, h);
   FileStorage file("/home/donamphuong/ImmersiveTeleoperation/src/stitcher/homography/H" + to_string(secondCamId) + to_string(firstCamId) + ".yaml", FileStorage::WRITE);
 
   file << "homography" << h;
@@ -132,12 +129,9 @@ int main(int argc, char** argv) {
   getCalibrationDetails();
   // getHomographyBetweenCameras(1, 2);
   // getHomographyBetweenCameras(2, 3);
-  // getHomographyBetweenCameras(3, 4);
+  getHomographyBetweenCameras(3, 4);
+  getHomographyBetweenCameras(4, 5);
+  // getHomographyBetweenCameras(5, 6);
 
-  // Mat h = homography2Images(imread("test12.png"), imread("test21.png"));
-  // alignImg(imread("t2.png"), imread("t1.png"), h);
-
-  homography2Images(imread("test34.png"), imread("test43.png"));
-  // alignImages(imread("t2.png"), imread("t1.png"));
   return 0;
 }
