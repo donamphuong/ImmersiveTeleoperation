@@ -90,15 +90,6 @@ class SaveFrame : public cv::ParallelLoopBody {
     }
 };
 
-void getUndistortMap() {
-  Mat I = Mat_<double>::eye(3,3);
-
-  for (int cam = 0; cam < numImage; cam++) {
-    CalibrationDetails cal = calibrations[cam];
-    initUndistortRectifyMap(cal.camera_matrix, cal.distortion, I, calibrations[0].camera_matrix, image_size, CV_16SC2, undistortMap1[cam], undistortMap2[cam]);
-  }
-}
-
 int run() {
   ros::NodeHandle nh;
   image_transport::ImageTransport it(nh);
@@ -109,8 +100,6 @@ int run() {
   //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
   //This will buffer up to 1 message before beginning to throw away old ones
   pub = it.advertise("camera", 1);
-  CameraStreamer multiCameras;
-  multiCameras.startMultiCapture();
 
   // cv::VideoCapture cap[numImage];
   //
@@ -129,36 +118,40 @@ int run() {
   //  }
 
   precomp();
+  CameraStreamer multiCameras;
+  multiCameras.startMultiCapture();
+
   calibrations.clear();
   bool allOpened = false;
 
   while (nh.ok()) {
     clock_t start = clock();
-    vector<Mat> images;
-    map<int, Mat> imagesMap;
-
-    double saveDuration = 0;
-    for (int i = 0; i < numImage; i++) {
-      if (!multiCameras.frame_queue[i]->empty()) {
-        images.push_back(multiCameras.frame_queue[i]->front());
-        // imshow(to_string(i), images[i]);
-        // waitKey(1);
-
-        multiCameras.frame_queue[i]->pop();
-      }
-
-      if (images.size() == numImage) {
-        allOpened = true;
-      }
-      // save_frame(cap[i], images, i);
-    }
-    cout << "Total reading and undistorting image " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-
-    if (allOpened) {
+    // if (multiCameras.isReady) {
       clock_t startStitch = clock();
       Mat stitched;
-      thread stitchThread(stitch, images);
-      // stitch(images, stitched);
+      //Reset the visibility of the canvas and the weight map to be zero
+      //a blank canvas should be initialised when images need to be stitched
+      dst.setTo(Scalar::all(0));
+      dst_mask.setTo(Scalar::all(0));
+      dst_weight_map.setTo(0);
+
+      double saveDuration = 0;
+      for (int i = 0; i < numImage; i++) {
+       thread *t = new thread(&CameraStreamer::captureFrame, multiCameras, i);
+       t->join();
+        // save_frame(cap[i], images, i);
+      }
+      cout << "Total reading and undistorting image " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
+
+      normalize_blended_image();
+      compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
+
+      UMat mask;
+      compare(dst_mask, 0, mask, CMP_EQ);
+      dst.setTo(Scalar::all(0), mask);
+      mask.release();
+      dst.convertTo(stitched, CV_8U);
+
       double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
       cout << "Stitching Time: " << duration << endl;
 
@@ -171,7 +164,7 @@ int run() {
     }
     ros::spinOnce();
     loop_rate.sleep();
-  }
+  // }
 }
 
 //Show contents of cameras after calibrations
@@ -209,7 +202,6 @@ int main(int argc, char** argv) {
   // numImage = atoi(argv[1]);
 
   getCalibrationDetails();
-  getUndistortMap();
 
   // return test();
   return run();
