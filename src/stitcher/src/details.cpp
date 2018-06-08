@@ -10,7 +10,7 @@ void printVector(vector<Mat> vect) {
 void getCalibrationDetails() {
   for (int i = 1; i <= NUM_IMAGES_PANORAMA; i++) {
     CalibrationDetails cal;
-    std::string filename = "/data/jas215/pho/ImmersiveTeleoperation/src/stitcher/calibration/camera" + to_string(i) + ".yaml";
+    std::string filename = "./src/stitcher/calibration/camera" + to_string(i) + ".yaml";
     FileStorage fs(filename, FileStorage::READ);
 
     if (!fs.isOpened()) {
@@ -42,7 +42,7 @@ vector<Mat> homography() {
   // for (int i = 1; i < numImage; i++) {
   for (int i = 1; i < NUM_IMAGES_PANORAMA; i++) {
     Mat h;
-    string filename = "/data/jas215/pho/ImmersiveTeleoperation/src/stitcher/homography/H" +
+    string filename = "./src/stitcher/homography/H" +
                       to_string(i+1) + to_string(i) + ".yaml";
     FileStorage file(filename, FileStorage::READ);
 
