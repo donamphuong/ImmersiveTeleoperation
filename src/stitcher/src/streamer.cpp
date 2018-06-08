@@ -5,6 +5,7 @@
 void CameraStreamer::captureFrame(int index) {
   VideoCapture *capture = camera_capture[index];
   // while (true) {
+    clock_t start = clock();
     Mat frame, corrected;
     capture->read(frame);
 
@@ -25,6 +26,8 @@ void CameraStreamer::captureFrame(int index) {
 
     // frame_queue[index]->push(corrected);
     frame.release();
+    double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+    cout << "Capturing video frame from camera " << index << " takes: " << duration << endl;
   // }
 }
 
