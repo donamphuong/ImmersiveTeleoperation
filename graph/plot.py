@@ -1,28 +1,29 @@
 import numpy as np
 import matplotlib.pyplot as plot
 
-def plot_data(data):
-  plot.clf()
-  plot.plot(data)
-  plot.show()
-  plot.savefig("test.png")
-  print np.mean(data)
+f = open('parallel_read.txt', 'r')
+tmp = f.read().strip().split()
+parallel_read = np.array(tmp, dtype=np.double)
+f = open('parallel.txt', 'r')
+tmp = f.read().strip().split()
+parallel = np.array(tmp, dtype=np.double)
+f = open('no_parallel.txt', 'r')
+tmp = f.read().strip().split()
+no_parallel = np.array(tmp, dtype=np.double)
 
-if __name__ == "__main__":
-  counter = 0
-  while True:
-    try:
-	f = open('parallel_read.txt', 'r')
-        tmp = f.read().strip().split()
-        data = np.array(tmp, dtype=np.double)
-        print data
-    except EOFError:
-        print "Input has terminated! Exiting"
-        exit()
-    except ValueError:
-        print "Invalid input, skipping. Input was: %s"%tmp
-        continue
+print "mean parallel_read " + str(np.mean(parallel_read))
+print "mean parallel " + str(np.mean(parallel))
+print "mean no_parallel " + str(np.mean(no_parallel))
+print "median parallel_read " + str(np.median(parallel_read))
+print "median parallel " + str(np.median(parallel))
+print "median no_parallel " + str(np.median(no_parallel))
 
-    print "Plotting plot number %d"%counter
-    plot_data(data)
-    counter += 1
+myplot = plot.figure(figsize=(20, 20))
+plot.clf()
+plot.plot(parallel_read, '-b', label='parallel_read')
+plot.plot(parallel, '-r', label='parallel')
+plot.plot(no_parallel, 'g', label='no_parallel')
+plot.legend(loc='upper left')
+plot.show()
+plot.draw()
+myplot.savefig("test.png")
