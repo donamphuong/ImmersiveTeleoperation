@@ -48,7 +48,7 @@ void initComposedCanvas() {
 }
 
 void initHelperTools() {
-  double work_megapix = 0.08;
+  double work_megapix = 1;
   double seam_megapix = 0.08;
   double work_scale = 0.5f;
   double seam_scale = 1;

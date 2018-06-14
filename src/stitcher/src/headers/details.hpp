@@ -9,9 +9,10 @@ using namespace std;
 using namespace cv;
 
 #define startCamera 1
-#define numImage 6
 #define ERROR -1
 #define WEIGHT_EPS 1e-5f
+
+int numImage = 6;
 
 class CalibrationDetails {
   public:

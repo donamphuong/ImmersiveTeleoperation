@@ -128,3 +128,22 @@ void stitch(vector<Mat> &full_images, Mat &result) {
 
   dst.convertTo(result, CV_8U);
 }
+
+void clearCanvas() {
+  //Reset the visibility of the canvas and the weight map to be zero
+  //a blank canvas should be initialised when images need to be stitched
+  dst.setTo(Scalar::all(0));
+  dst_mask.setTo(Scalar::all(0));
+  dst_weight_map.setTo(0);
+}
+
+void assembleCanvas() {
+  normalize_blended_image();
+  compare(dst_weight_map, WEIGHT_EPS, dst_mask, CMP_GT);
+
+  UMat mask;
+  compare(dst_mask, 0, mask, CMP_EQ);
+  dst.setTo(Scalar::all(0), mask);
+  mask.release();
+
+}

@@ -66,7 +66,9 @@ set(
 add_library(details src/details.cpp)
 add_library(stitch src/stitch.cpp)
 add_library(precomp src/precomp.cpp )
-#add_library(streamer src/streamer.cpp)
+add_library(streamer_parallel src/optimization/parallel/streamer.cpp)
+add_library(streamer_parallel_read src/optimization/parallel_read/streamer.cpp)
+add_library(streamer_stream src/optimization/stream/streamer.cpp)
 #cuda_add_library(test src/test/test.cu)
 
 target_link_libraries(precomp
@@ -83,6 +85,56 @@ target_link_libraries(image_publisher
 )
 add_dependencies(image_publisher stitcher_generate_messages_cpp)
 
+################################################################################
+############################# OPTIMIZATION PACKAGE #############################
+################################################################################
+add_executable(parallel src/optimization/parallel/publisher_parallel.cpp)
+target_link_libraries(parallel
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES}
+  stitch
+  details
+  streamer_parallel
+  precomp
+)
+add_dependencies(parallel stitcher_generate_messages_cpp)
+
+add_executable(parallel_read src/optimization/parallel_read/publisher_parallel_read.cpp)
+target_link_libraries(parallel_read
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES}
+  stitch
+  details
+  streamer_parallel_read
+  precomp
+)
+add_dependencies(parallel_read stitcher_generate_messages_cpp)
+
+add_executable(no_parallel src/optimization/no_parallel/publisher_no_parallel.cpp)
+target_link_libraries(no_parallel
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES}
+  stitch
+  details
+  #streamer
+  precomp
+)
+add_dependencies(no_parallel stitcher_generate_messages_cpp)
+
+add_executable(stream src/optimization/stream/publisher_stream.cpp)
+target_link_libraries(stream
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES}
+  stitch
+  details
+  streamer_stream
+  precomp
+)
+add_dependencies(stream stitcher_generate_messages_cpp)
+###############################################################################
+###############################################################################
+###############################################################################
+
 add_executable(graph src/graph_plotting.cpp)
 target_link_libraries(graph
 	${catkin_LIBRARIES}
@@ -93,7 +145,6 @@ target_link_libraries(graph
   precomp
 )
 add_dependencies(graph stitcher_generate_messages_cpp)
-
 
 add_executable(image_processing src/test/image_processing.cpp)
 target_link_libraries(image_processing
