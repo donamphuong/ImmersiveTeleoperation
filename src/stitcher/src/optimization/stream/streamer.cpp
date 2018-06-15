@@ -1,6 +1,6 @@
 #include "streamer.hpp"
 
-// #define HAS_WEBCAM
+#define HAS_WEBCAM
 
 void CameraStreamer::captureFrame(int index) {
   VideoCapture *capture = camera_capture[index];
@@ -53,4 +53,19 @@ void CameraStreamer::startMultiCapture() {
     maps[i] = weight_maps[i].getMat(ACCESS_READ);
   }
   // cout << "hello" << endl;
+}
+
+CameraStreamer::~CameraStreamer() {
+  stopMultiCapture();
+}
+
+void CameraStreamer::stopMultiCapture() {
+  VideoCapture *cap;
+  for (int i = 0; i < numImage; i++) {
+    cap = camera_capture[i];
+    if (cap->isOpened()) {
+      //Release VideoCapture resource
+      cap->release();
+    }
+  }
 }

@@ -126,8 +126,8 @@ int run() {
     }
   }
 
-  namedWindow("stitched", WINDOW_NORMAL);
-  resizeWindow("stitched", 1920, 1080);
+  // namedWindow("stitched", WINDOW_NORMAL);
+  // resizeWindow("stitched", 1920, 1080);
   precomp();
   calibrations.clear();
 
@@ -138,10 +138,11 @@ int run() {
     map<int, Mat> imagesMap;
 
     double saveDuration = 0;
-    for (int i = 0; i < numImage; i++) {
-      save_frame(cap[i], images, i);
+    parallel_for_(Range(0, numImage), SaveFrame(cap, imagesMap));
+
+    for (map<int, Mat>::iterator iter = imagesMap.begin(); iter != imagesMap.end(); iter++) {
+      images[iter->first] = iter->second;
     }
-    cout << "Total reading and undistorting image " << saveDuration << endl;
 
     clock_t startStitch = clock();
     Mat stitched;
@@ -198,6 +199,6 @@ int main(int argc, char** argv) {
   getCalibrationDetails();
   getUndistortMap();
 
-  // return test();
+  return test();
   return run();
 }

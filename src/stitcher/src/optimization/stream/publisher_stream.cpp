@@ -82,16 +82,16 @@ int run() {
 
   while (nh.ok()) {
     clock_t start = clock();
-    vector<Mat> images(numImage);
     map<int, Mat> imagesMap;
 
     double saveDuration = 0;
+
     numImage = 0;
     for (int i = 0; i < numImage; i++) {
       if (!multiCameras.frame_queue[i]->empty()) {
+        numImage++;
         images[i] = multiCameras.frame_queue[i]->front();
         multiCameras.frame_queue[i]->pop();
-        numImage++;
       }
     }
     cout << "Total reading and undistorting image " << saveDuration << endl;
@@ -106,8 +106,8 @@ int run() {
     waitKey(1);
     cout << "Process time before publishing " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
-    pub.publish(msg);
+    // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", stitched).toImageMsg();
+    // pub.publish(msg);
 
     ros::spinOnce();
     loop_rate.sleep();

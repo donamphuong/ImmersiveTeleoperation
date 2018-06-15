@@ -6,6 +6,7 @@
 #include <tbb/task_group.h>
 #include <tbb/parallel_invoke.h>
 
+vector<Mat> maps(numImage);
 
 #define DEBUG
 void place_images(int img_idx, Mat &img_warped_s) ;

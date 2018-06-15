@@ -21,5 +21,5 @@ class CameraStreamer {
 
 vector<Mat> undistortMap1(numImage);
 vector<Mat> undistortMap2(numImage);
-vector<Mat> maps(numImage);
+// vector<Mat> maps(numImage);
 vector<Mat> images(numImage);

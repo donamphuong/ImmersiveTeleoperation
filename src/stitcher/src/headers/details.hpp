@@ -12,7 +12,7 @@ using namespace cv;
 #define ERROR -1
 #define WEIGHT_EPS 1e-5f
 
-int numImage = 6;
+int numImage = 3;
 
 class CalibrationDetails {
   public:

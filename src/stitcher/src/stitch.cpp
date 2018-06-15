@@ -67,7 +67,6 @@ void stitch(vector<Mat> &full_images, Mat &result) {
   dst_mask.setTo(Scalar::all(0));
   dst_weight_map.setTo(0);
 
-  vector<Mat> maps(numImage);
   for (int i = 0; i < numImage; i++) {
     maps[i] = weight_maps[i].getMat(ACCESS_READ);
   }

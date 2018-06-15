@@ -63,6 +63,9 @@ set(
     --std=c++11
     )
 
+set(catkin_LIBRARIES /opt/ros/kinetic/lib/libimage_transport.so;/opt/ros/kinetic/lib/libmessage_filters.so;/usr/lib/x86_64-linux-gnu/libtinyxml2.so;/opt/ros/kinetic/lib/libclass_loader.so;/usr/lib/libPocoFoundation.so;/usr/lib/x86_64-linux-gnu/libdl.so;/opt/ros/kinetic/lib/libroscpp.so;/usr/lib/x86_64-linux-gnu/libboost_signals.so;/opt/ros/kinetic/lib/libxmlrpcpp.so;/opt/ros/kinetic/lib/libroslib.so;/opt/ros/kinetic/lib/librospack.so;/usr/lib/x86_64-linux-gnu/libpython2.7.so;/usr/lib/x86_64-linux-gnu/libboost_filesystem.so;/usr/lib/x86_64-linux-gnu/libboost_program_options.so;/usr/lib/x86_64-linux-gnu/libtinyxml.so;/opt/ros/kinetic/lib/libcv_bridge.so;/opt/ros/kinetic/lib/librosconsole.so;/opt/ros/kinetic/lib/librosconsole_log4cxx.so;/opt/ros/kinetic/lib/librosconsole_backend_interface.so;/usr/lib/x86_64-linux-gnu/liblog4cxx.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;/opt/ros/kinetic/lib/libroscpp_serialization.so;/opt/ros/kinetic/lib/librostime.so;/opt/ros/kinetic/lib/libcpp_common.so;/usr/lib/x86_64-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_thread.so;/usr/lib/x86_64-linux-gnu/libboost_chrono.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_atomic.so;/usr/lib/x86_64-linux-gnu/libpthread.so;/usr/lib/x86_64-linux-gnu/libconsole_bridge.so
+)
+
 add_library(details src/details.cpp)
 add_library(stitch src/stitch.cpp)
 add_library(precomp src/precomp.cpp )
@@ -163,3 +166,14 @@ target_link_libraries(image_testing
   stitch
 )
 add_dependencies(image_testing stitcher_generate_messages_cpp)
+
+add_executable(find_homography src/find_homography.cpp)
+target_link_libraries(find_homography
+  ${OpenCV_LIBS}
+  ${catkin_LIBRARIES}
+  -ltbb
+  details
+  precomp
+  stitch
+)
+add_dependencies(find_homography stitcher_generate_messages_cpp)

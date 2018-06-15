@@ -11,15 +11,16 @@ class CameraStreamer {
     vector<queue<Mat>*> frame_queue;
     vector<thread*> camera_thread;
     bool isReady;
-    // ~CameraStreamer();
+    //Destructor for releasing resource(s)
+    ~CameraStreamer();
 
   public:
     void startMultiCapture();
-    // void stopMultiCapture();
+    void stopMultiCapture();
     void captureFrame(int index);
 };
 
 vector<Mat> undistortMap1(numImage);
 vector<Mat> undistortMap2(numImage);
-vector<Mat> maps(numImage);
+// vector<Mat> maps(numImage);
 vector<Mat> images(numImage);

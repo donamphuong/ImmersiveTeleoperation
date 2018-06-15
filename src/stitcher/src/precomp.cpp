@@ -11,6 +11,7 @@ void buildComposedMaps() {
       Mat mask;
       mask.create(image_size, CV_8U);
       mask.setTo(Scalar::all(255));
+      cout << "hello1" << endl;
 
       //Warping mask based on precomputed spherical map
       UMat maskUXMap, maskUYMap;
@@ -48,7 +49,7 @@ void initComposedCanvas() {
 }
 
 void initHelperTools() {
-  double work_megapix = 1;
+  double work_megapix = 0.5;
   double seam_megapix = 0.08;
   double work_scale = 0.5f;
   double seam_scale = 1;
@@ -80,6 +81,7 @@ void precomp() {
   initHelperTools();
   buildComposedMaps();
   initComposedCanvas();
+
   dst_weight_map.create(dst_roi.size(), CV_32F);
 
   //Build weight map that is used in feather blending
