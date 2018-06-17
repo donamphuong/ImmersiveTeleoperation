@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plot
 
-f = open('parallel_read.txt', 'r')
+f = open('resultTotal.txt', 'r')
 tmp = f.read().strip().split()
 parallel_read = np.array(tmp, dtype=np.double)
-f = open('parallel.txt', 'r')
+f = open('resultStitch.txt', 'r')
 tmp = f.read().strip().split()
 parallel = np.array(tmp, dtype=np.double)
-f = open('no_parallel.txt', 'r')
+f = open('resultStream.txt', 'r')
 tmp = f.read().strip().split()
 no_parallel = np.array(tmp, dtype=np.double)
 
@@ -20,12 +20,12 @@ print "median no_parallel " + str(np.median(no_parallel))
 
 myplot = plot.figure(figsize=(20, 20))
 plot.clf()
-plot.plot(parallel_read[1:], '-b', label='parallel_read')
+plot.plot(parallel_read[0:50], '-b', label='Total processing time before publishing')
 plot.grid(True, which='both')
 plot.minorticks_on()
-plot.plot(parallel[1:], '-r', label='parallel')
-plot.plot(no_parallel[1:], 'g', label='no_parallel')
+plot.plot(parallel[0:50], '-r', label='Stitching Time')
+plot.plot(no_parallel[0:50], 'g', label='Streaming Time')
 plot.legend(loc='upper left')
 plot.show()
 plot.draw()
-myplot.savefig("test.png")
+myplot.savefig("result.png")

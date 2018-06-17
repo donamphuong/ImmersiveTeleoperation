@@ -8,7 +8,6 @@
 #include <string>
 #include "headers/stitch.hpp"
 // #include "headers/streamer.hpp"
-#include <tbb/tbb.h>
 #include <opencv2/opencv.hpp>
 #include <thread>
 
@@ -32,67 +31,6 @@ void getUndistortMap() {
     CalibrationDetails cal = calibrations[cam];
     initUndistortRectifyMap(cal.camera_matrix, cal.distortion, I, calibrations[0].camera_matrix, image_size, CV_16SC2, undistortMap1[cam], undistortMap2[cam]);
   }
-}
-
-int run() {
-  ros::NodeHandle nh;
-  image_transport::ImageTransport it(nh);
-
-  ros::Rate loop_rate(20);
-  ROS_INFO("Image Publisher running");
-
-  //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
-  //This will buffer up to 1 message before beginning to throw away old ones
-  pub = it.advertise("camera", 1);
-  cv::VideoCapture cap[numImage];
-
-  for (int video_source = 0; video_source < numImage; video_source++) {
-    cap[video_source].open(video_source);
-    cap[video_source].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
-    cap[video_source].set(CAP_PROP_FRAME_WIDTH, 1920);
-    cap[video_source].set(CAP_PROP_FRAME_HEIGHT, 1080);
-    cap[video_source].set(CAP_PROP_AUTOFOCUS, true);
-
-    //Check if video device can be opened with the given index
-    if (!cap[video_source].isOpened()) {
-      std::cout << "Device " << std::to_string(video_source) << " cannot be opened!" << std::endl;
-      return ERROR;
-    }
-  }
-
-  precomp();
-  calibrations.clear();
-  string results = "";
-
-  for (int iter = 0; iter < 100; iter++) {
-  //while (nh.ok()) {
-    clock_t start = clock();
-    vector<Mat> images(numImage);
-    map<int, Mat> imagesMap;
-
-    double saveDuration = 0;
-    for (int i = 0; i < numImage; i++) {
-      save_frame(cap[i], images, i);
-    }
-    // cout << "Total reading and undistorting image " << saveDuration << endl;
-
-    clock_t startStitch = clock();
-    Mat stitched;
-    stitch(images, stitched);
-    double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
-    // cout << "Stitching Time: " << duration << endl;
-
-    results += to_string((clock() - start) / (double) CLOCKS_PER_SEC) + "\t";
-
-    ros::spinOnce();
-    loop_rate.sleep();
-  }
-  results += "\n";
-
-  ofstream myfile;
-  myfile.open("no_parallel.txt");
-  myfile << results;
-  myfile.close();
 }
 
 //Show contents of cameras after calibrations
@@ -132,6 +70,66 @@ int main(int argc, char** argv) {
   getCalibrationDetails();
   getUndistortMap();
 
-  // return test();
-  return run();
+  //this let master tell any nodes listening on 'camera/image' that we are going to publish data on that topic.
+  //This will buffer up to 1 message before beginning to throw away old ones
+  cv::VideoCapture cap[numImage];
+
+  for (int video_source = 0; video_source < numImage; video_source++) {
+    cap[video_source].open(video_source);
+    cap[video_source].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
+    cap[video_source].set(CAP_PROP_FRAME_WIDTH, 1920);
+    cap[video_source].set(CAP_PROP_FRAME_HEIGHT, 1080);
+    cap[video_source].set(CAP_PROP_AUTOFOCUS, true);
+
+    //Check if video device can be opened with the given index
+    if (!cap[video_source].isOpened()) {
+      std::cout << "Device " << std::to_string(video_source) << " cannot be opened!" << std::endl;
+      return ERROR;
+    }
+  }
+
+  precomp();
+  calibrations.clear();
+  string results = "";
+  string stitchTime = "";
+  string stream = "";
+
+  for (int iter = 0; iter < 100; iter++) {
+  //while (nh.ok()) {
+    clock_t start = clock();
+    vector<Mat> images(numImage);
+    map<int, Mat> imagesMap;
+
+    double streamDuration = 0;
+    for (int i = 0; i < numImage; i++) {
+      save_frame(cap[i], images, i);
+    }
+    streamDuration = (clock() - start) / (double) CLOCKS_PER_SEC;
+
+    clock_t startStitch = clock();
+    Mat stitched;
+    stitch(images, stitched);
+    double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
+    // cout << "Stitching Time: " << duration << endl;
+
+    stitchTime += to_string(duration) + "\t";
+    stream += to_string(streamDuration) + "\t";
+    results += to_string((clock() - start) / (double) CLOCKS_PER_SEC) + "\t";
+  }
+  results += "\n";
+
+  ofstream resultTotal;
+  resultTotal.open("resultTotal.txt");
+  resultTotal << results;
+  resultTotal.close();
+
+  ofstream resultStitch;
+  resultStitch.open("resultStitch.txt");
+  resultStitch << stitchTime;
+  resultStitch.close();
+
+  ofstream resultStream;
+  resultStream.open("resultStream.txt");
+  resultStream << stream;
+  resultStream.close();
 }
