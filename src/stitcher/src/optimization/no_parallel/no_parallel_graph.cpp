@@ -6,7 +6,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/stitching.hpp>
 #include <string>
-#include "../headers/stitch.hpp"
+#include "../../headers/stitch.hpp"
 // #include "headers/streamer.hpp"
 #include <tbb/tbb.h>
 #include <opencv2/opencv.hpp>
@@ -47,7 +47,7 @@ int run() {
   cv::VideoCapture cap[numImage];
 
   for (int video_source = 0; video_source < numImage; video_source++) {
-    cap[video_source].open(video_source);
+    cap[video_source].open(video_source+1);
     cap[video_source].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
     cap[video_source].set(CAP_PROP_FRAME_WIDTH, 1920);
     cap[video_source].set(CAP_PROP_FRAME_HEIGHT, 1080);
@@ -90,7 +90,7 @@ int run() {
   results += "\n";
 
   ofstream myfile;
-  myfile.open("no_parallel.txt");
+  myfile.open("no_parallel_2.txt");
   myfile << results;
   myfile.close();
 }

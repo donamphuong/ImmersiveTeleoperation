@@ -1,6 +1,6 @@
 #include "streamer.hpp"
 
-// #define HAS_WEBCAM
+#define HAS_WEBCAM
 
 void CameraStreamer::captureFrame(int index) {
   VideoCapture *capture = camera_capture[index];

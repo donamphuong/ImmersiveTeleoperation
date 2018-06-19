@@ -33,31 +33,41 @@ void getUndistortMap() {
   }
 }
 
-//Show contents of cameras after calibrations
-void save_frame(VideoCapture cap, std::vector<Mat >&images, int cam) {
-  Mat frame;
-  clock_t start;
-  double duration;
+class SaveFrame : public cv::ParallelLoopBody {
+  private:
+    VideoCapture *cap;
+    map<int, Mat> &images;
 
-  start = clock();
-  cap >> frame;
-  cout << "Saving time: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
-  //Check if the grabbed frame is actually full with some content
-  if (!frame.empty()) {
-    Mat corrected /*= Mat(image_size.width, image_size.height, CV_8UC3)*/;
+  public:
+    SaveFrame(VideoCapture *inputCap, map<int, Mat> &inputImages)
+        :cap(inputCap), images(inputImages) {}
 
-    start = clock();
-    remap(frame, corrected, undistortMap1[cam], undistortMap2[cam], INTER_LINEAR, BORDER_CONSTANT);
+    virtual void operator()(const cv::Range& range) const {
+      for(int i = range.start; i < range.end; i++) {
+        Mat frame;
+        clock_t start;
+        double duration;
+        cap[i] >> frame;
+        //Check if the grabbed frame is actually full with some content
+        if (!frame.empty()) {
+          Mat corrected = Mat(image_size.width, image_size.height, CV_8UC3);
 
-    #ifdef DEBUG
-      duration = (-start + clock()) / (double) CLOCKS_PER_SEC;
-      cout << "Undistorting: " << duration << endl;
-    #endif
+          start = clock();
+          remap(frame, corrected, undistortMap1[i], undistortMap2[i], INTER_LINEAR, BORDER_CONSTANT);
 
-    images[cam] = (corrected);
-    frame.release();
-  }
-}
+          // #ifdef DEBUG
+            duration = (-start + clock()) / (double) CLOCKS_PER_SEC;
+            cout << "Undistorting: " << duration << endl;
+          // #endif
+
+          images.insert(pair <int, Mat>(i, corrected));
+          frame.release();
+          // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
+          // pub.publish(msg);
+        }
+      }
+    }
+};
 
 /*
 This is a camera node that takes care of the communication with the camera
@@ -75,7 +85,7 @@ int main(int argc, char** argv) {
   cv::VideoCapture cap[numImage];
 
   for (int video_source = 0; video_source < numImage; video_source++) {
-    cap[video_source].open(video_source);
+    cap[video_source].open(video_source+1);
     cap[video_source].set(CAP_PROP_FOURCC,VideoWriter::fourcc('M','J','P','G'));
     cap[video_source].set(CAP_PROP_FRAME_WIDTH, 1920);
     cap[video_source].set(CAP_PROP_FRAME_HEIGHT, 1080);
@@ -91,20 +101,17 @@ int main(int argc, char** argv) {
   precomp();
   calibrations.clear();
   string results = "";
-  string stitchTime = "";
-  string stream = "";
 
   for (int iter = 0; iter < 100; iter++) {
   //while (nh.ok()) {
     clock_t start = clock();
     vector<Mat> images(numImage);
-    map<int, Mat> imagesMap;
+    map<int, Mat>  imagesMap;
 
-    double streamDuration = 0;
-    for (int i = 0; i < numImage; i++) {
-      save_frame(cap[i], images, i);
+    parallel_for_(Range(0, numImage), SaveFrame(cap, imagesMap));
+     for (map<int, Mat>::iterator i = imagesMap.begin(); i != imagesMap.end(); i++) {
+      images[i->first] = i->second;
     }
-    streamDuration = (clock() - start) / (double) CLOCKS_PER_SEC;
 
     clock_t startStitch = clock();
     Mat stitched;
@@ -112,24 +119,17 @@ int main(int argc, char** argv) {
     double duration = (clock() - startStitch) / (double) CLOCKS_PER_SEC;
     // cout << "Stitching Time: " << duration << endl;
 
-    stitchTime += to_string(duration) + "\t";
-    stream += to_string(streamDuration) + "\t";
-    results += to_string((clock() - start) / (double) CLOCKS_PER_SEC) + "\t";
+    double dur = (clock() - start) / (double) CLOCKS_PER_SEC;
+    results += to_string(dur) + "\t";
+    cout << dur << endl;
+
+    imshow("stitched", stitched);
+    waitKey(1);
   }
   results += "\n";
 
   ofstream resultTotal;
-  resultTotal.open("resultTotal.txt");
+  resultTotal.open("parallel_read_2.txt");
   resultTotal << results;
   resultTotal.close();
-
-  ofstream resultStitch;
-  resultStitch.open("resultStitch.txt");
-  resultStitch << stitchTime;
-  resultStitch.close();
-
-  ofstream resultStream;
-  resultStream.open("resultStream.txt");
-  resultStream << stream;
-  resultStream.close();
 }

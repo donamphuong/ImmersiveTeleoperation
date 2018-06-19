@@ -60,6 +60,42 @@ void getUndistortMap() {
   }
 }
 
+class SaveFrame : public cv::ParallelLoopBody {
+  private:
+    VideoCapture *cap;
+    map<int, Mat> &images;
+
+  public:
+    SaveFrame(VideoCapture *inputCap, map<int, Mat> &inputImages)
+        :cap(inputCap), images(inputImages) {}
+
+    virtual void operator()(const cv::Range& range) const {
+      for(int i = range.start; i < range.end; i++) {
+        Mat frame;
+        clock_t start;
+        double duration;
+        cap[i] >> frame;
+        //Check if the grabbed frame is actually full with some content
+        if (!frame.empty()) {
+          Mat corrected = Mat(image_size.width, image_size.height, CV_8UC3);
+
+          start = clock();
+          remap(frame, corrected, undistortMap1[i], undistortMap2[i], INTER_LINEAR, BORDER_CONSTANT);
+
+          // #ifdef DEBUG
+            duration = (-start + clock()) / (double) CLOCKS_PER_SEC;
+            cout << "Undistorting: " << duration << endl;
+          // #endif
+
+          images.insert(pair <int, Mat>(i, corrected));
+          frame.release();
+          // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", corrected).toImageMsg();
+          // pub.publish(msg);
+        }
+      }
+    }
+};
+
 int run() {
   ros::NodeHandle nh;
   image_transport::ImageTransport it(nh);
@@ -90,9 +126,13 @@ int run() {
   while (nh.ok()) {
     clock_t start = clock();
     clock_t startStitch = clock();
-    std::vector<Mat> images;
-    for (int i = 0; i < numImage; i++) {
-      save_frame(cap[i], images, i);
+    vector<Mat> images(numImage);
+    map<int, Mat>  imagesMap;
+
+    parallel_for_(Range(0, numImage), SaveFrame(cap, imagesMap));
+
+    for (map<int, Mat>::iterator i = imagesMap.begin(); i != imagesMap.end(); i++) {
+      images[i->first] = i->second;
     }
     cout << "Undistorting: " << (clock() - start) / (double) CLOCKS_PER_SEC << endl;
 
@@ -152,6 +192,6 @@ int main(int argc, char** argv) {
   getCalibrationDetails();
   getUndistortMap();
 
-  return test();
+  // return test();
   return run();
 }

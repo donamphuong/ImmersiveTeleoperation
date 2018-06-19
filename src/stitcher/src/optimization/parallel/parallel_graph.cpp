@@ -6,8 +6,8 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/stitching.hpp>
 #include <string>
-#include "headers/stitch.hpp"
-#include "headers/streamer.hpp"
+#include "../../headers/stitch.hpp"
+#include "streamer.hpp"
 #include <tbb/tbb.h>
 #include <opencv2/opencv.hpp>
 #include <thread>
@@ -78,7 +78,7 @@ int run() {
   results += "\n";
 
   ofstream myfile;
-  myfile.open("parallel.txt");
+  myfile.open("parallel_2.txt");
   myfile << results;
   myfile.close();
 

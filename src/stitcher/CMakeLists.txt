@@ -134,6 +134,27 @@ target_link_libraries(stream
   precomp
 )
 add_dependencies(stream stitcher_generate_messages_cpp)
+
+add_executable(no_parallel_graph src/optimization/no_parallel/no_parallel_graph.cpp)
+target_link_libraries(no_parallel_graph
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES}
+  stitch
+  details
+  precomp
+)
+add_dependencies(no_parallel_graph stitcher_generate_messages_cpp)
+
+add_executable(parallel_graph src/optimization/parallel/parallel_graph.cpp)
+target_link_libraries(parallel_graph
+	${catkin_LIBRARIES}
+	${OpenCV_LIBRARIES}
+  stitch
+  streamer_parallel
+  details
+  precomp
+)
+add_dependencies(parallel_graph stitcher_generate_messages_cpp)
 ###############################################################################
 ###############################################################################
 ###############################################################################

@@ -7,3 +7,5 @@ devel/*
 src/stitcher/.vscode/*
 install/*
 *.active
+*.txt
+data/*
